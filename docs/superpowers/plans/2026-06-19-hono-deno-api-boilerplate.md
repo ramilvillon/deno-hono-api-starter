@@ -38,8 +38,8 @@
 
 ```
 deno 2.7.13
-nodejs 22.14.0
-gitleaks 8.21.2
+nodejs 24.14.1
+gitleaks 8.30.1
 ```
 
 - [ ] **Step 2: Write `deno.json`** (import map + tasks). Use `deno add` afterward to resolve exact versions; these ranges are the starting point.
