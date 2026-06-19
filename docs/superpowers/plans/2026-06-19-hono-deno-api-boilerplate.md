@@ -1,29 +1,50 @@
 # Hono + Deno API Boilerplate Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use
+> superpowers:subagent-driven-development (recommended) or
+> superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a production-shaped Deno + Hono + TypeScript REST API boilerplate with OAuth2 auth (access + refresh), Google social login, RBAC with ownership, pluggable rate limiting, Drizzle/MySQL persistence, OpenAPI/Scalar docs, an `hc` RPC client, and husky+gitleaks pre-commit checks — built entirely with factory-function composition (no inheritance).
+**Goal:** Build a production-shaped Deno + Hono + TypeScript REST API
+boilerplate with OAuth2 auth (access + refresh), Google social login, RBAC with
+ownership, pluggable rate limiting, Drizzle/MySQL persistence, OpenAPI/Scalar
+docs, an `hc` RPC client, and husky+gitleaks pre-commit checks — built entirely
+with factory-function composition (no inheritance).
 
-**Architecture:** Dependencies flow inward (`config → db → repositories → services → deps`). Route modules follow Hono's "Building a larger application" idiom: module-level, method-chained `new Hono()` sub-apps mounted with `app.route()`. Services/repos are supplied to handlers through an `injectDeps` middleware (read via `c.var`), so route files stay dependency-free, RPC type inference is preserved, and the same modules run against in-memory fakes in tests.
+**Architecture:** Dependencies flow inward
+(`config → db → repositories → services → deps`). Route modules follow Hono's
+"Building a larger application" idiom: module-level, method-chained `new Hono()`
+sub-apps mounted with `app.route()`. Services/repos are supplied to handlers
+through an `injectDeps` middleware (read via `c.var`), so route files stay
+dependency-free, RPC type inference is preserved, and the same modules run
+against in-memory fakes in tests.
 
-**Tech Stack:** Deno 2.7.13 (asdf), Hono, Zod, `@hono/zod-validator`, Drizzle ORM + MySQL (`mysql2`), `hono/jwt`, `bcryptjs`, `@hono/oauth-providers` (Google), `hono-rate-limiter`, `hono-pino`/pino, `hono-openapi` + Scalar, husky + gitleaks.
+**Tech Stack:** Deno 2.7.13 (asdf), Hono, Zod, `@hono/zod-validator`, Drizzle
+ORM + MySQL (`mysql2`), `hono/jwt`, `bcryptjs`, `@hono/oauth-providers`
+(Google), `hono-rate-limiter`, `hono-pino`/pino, `hono-openapi` + Scalar,
+husky + gitleaks.
 
-**Spec:** `docs/superpowers/specs/2026-06-19-hono-deno-api-boilerplate-design.md`
+**Spec:**
+`docs/superpowers/specs/2026-06-19-hono-deno-api-boilerplate-design.md`
 
 ---
 
 ## Conventions used by every task
 
-- **TDD:** write the test, watch it fail, implement minimally, watch it pass, commit.
-- **Run tests:** `deno test -A` (the suite needs env/file/net for the in-process app). Single file: `deno test -A tests/<file>.test.ts`.
-- **Type/lint gate before each commit:** `deno check src/ tests/ && deno lint && deno fmt`.
+- **TDD:** write the test, watch it fail, implement minimally, watch it pass,
+  commit.
+- **Run tests:** `deno test -A` (the suite needs env/file/net for the in-process
+  app). Single file: `deno test -A tests/<file>.test.ts`.
+- **Type/lint gate before each commit:**
+  `deno check src/ tests/ && deno lint && deno fmt`.
 - **Domain types (locked — use these exact names across all tasks):**
   - `UserRecord = { id: string; email: string; passwordHash: string | null; createdAt: Date; updatedAt: Date }`
   - `AuthenticatedUser = { id: string; email: string; roles: string[]; permissions: string[] }`
   - `PublicUser = { id: string; email: string; createdAt: Date }`
   - `TokenPair = { access_token: string; refresh_token: string; token_type: "Bearer"; expires_in: number }`
   - `Deps = { config: Config; rateStore: RateLimitStore; userService: UserService; authService: AuthService }`
-  - Hono env: `type AppEnv = { Variables: { requestId: string; logger: Logger; user: AuthenticatedUser } & Deps }`
+  - Hono env:
+    `type AppEnv = { Variables: { requestId: string; logger: Logger; user: AuthenticatedUser } & Deps }`
 
 ---
 
@@ -32,6 +53,7 @@
 ### Task 0.1: Tooling files (asdf, deno.json, gitignore)
 
 **Files:**
+
 - Create: `.tool-versions`, `deno.json`, `.gitignore`, `.env.example`
 
 - [ ] **Step 1: Write `.tool-versions`**
@@ -42,7 +64,8 @@ nodejs 24.14.1
 gitleaks 8.30.1
 ```
 
-- [ ] **Step 2: Write `deno.json`** (import map + tasks). Use `deno add` afterward to resolve exact versions; these ranges are the starting point.
+- [ ] **Step 2: Write `deno.json`** (import map + tasks). Use `deno add`
+      afterward to resolve exact versions; these ranges are the starting point.
 
 ```jsonc
 {
@@ -109,8 +132,9 @@ RATE_LIMIT_MAX=100
 
 - [ ] **Step 5: Resolve deps and commit**
 
-Run: `cp .env.example .env && deno cache --reload deno.json 2>/dev/null; deno install` (or `deno add` per package if a version fails to resolve).
-Then:
+Run:
+`cp .env.example .env && deno cache --reload deno.json 2>/dev/null; deno install`
+(or `deno add` per package if a version fails to resolve). Then:
 
 ```bash
 git add .tool-versions deno.json deno.lock .gitignore .env.example
@@ -122,6 +146,7 @@ git commit -m "chore: scaffold Deno project tooling"
 ### Task 0.2: Config loader (`src/config.ts`)
 
 **Files:**
+
 - Create: `src/config.ts`
 - Test: `tests/config.test.ts`
 
@@ -160,8 +185,8 @@ Deno.test('loadConfig throws on missing required value', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test -A tests/config.test.ts`
-Expected: FAIL — module `../src/config.ts` not found.
+Run: `deno test -A tests/config.test.ts` Expected: FAIL — module
+`../src/config.ts` not found.
 
 - [ ] **Step 3: Implement `src/config.ts`**
 
@@ -222,8 +247,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test -A tests/config.test.ts`
-Expected: PASS (2 tests).
+Run: `deno test -A tests/config.test.ts` Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -237,6 +261,7 @@ git commit -m "feat: add zod-validated config loader"
 ### Task 0.3: Errors lib (`src/lib/errors.ts`)
 
 **Files:**
+
 - Create: `src/lib/errors.ts`
 - Test: `tests/errors.test.ts`
 
@@ -260,8 +285,7 @@ Deno.test('AppError.conflict sets 409', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test -A tests/errors.test.ts`
-Expected: FAIL — module not found.
+Run: `deno test -A tests/errors.test.ts` Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement `src/lib/errors.ts`**
 
@@ -289,8 +313,7 @@ export class AppError extends Error {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test -A tests/errors.test.ts`
-Expected: PASS.
+Run: `deno test -A tests/errors.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -304,6 +327,7 @@ git commit -m "feat: add flat AppError with helper constructors"
 ### Task 0.4: Logger (`src/lib/logger.ts`) and app types (`src/types.ts`)
 
 **Files:**
+
 - Create: `src/lib/logger.ts`, `src/types.ts`
 
 - [ ] **Step 1: Implement `src/lib/logger.ts`**
@@ -325,7 +349,8 @@ export function createLogger(config: Config): Logger {
 }
 ```
 
-- [ ] **Step 2: Implement `src/types.ts`** (placeholder types filled by later tasks; defined now so middleware/routes can import a stable `AppEnv`)
+- [ ] **Step 2: Implement `src/types.ts`** (placeholder types filled by later
+      tasks; defined now so middleware/routes can import a stable `AppEnv`)
 
 ```ts
 import type { Logger } from './lib/logger.ts'
@@ -348,12 +373,14 @@ export type AppVariables = {
 }
 ```
 
-> Note: `AppVariables` is extended with services + `rateStore` in Task 6.x once `Deps` exists. For now route/middleware files import `AppEnv` from `src/deps.ts` (created in Phase 1) — do not import service types until they exist.
+> Note: `AppVariables` is extended with services + `rateStore` in Task 6.x once
+> `Deps` exists. For now route/middleware files import `AppEnv` from
+> `src/deps.ts` (created in Phase 1) — do not import service types until they
+> exist.
 
 - [ ] **Step 3: Typecheck and commit**
 
-Run: `deno check src/lib/logger.ts src/types.ts`
-Expected: PASS.
+Run: `deno check src/lib/logger.ts src/types.ts` Expected: PASS.
 
 ```bash
 git add src/lib/logger.ts src/types.ts
@@ -365,6 +392,7 @@ git commit -m "feat: add pino logger factory and base app types"
 ### Task 0.5: Minimal app + health route + entrypoint
 
 **Files:**
+
 - Create: `src/app.ts`, `src/main.ts`
 - Test: `tests/health.test.ts`
 
@@ -384,10 +412,11 @@ Deno.test('GET /health returns ok', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test -A tests/health.test.ts`
-Expected: FAIL — `src/app.ts` not found.
+Run: `deno test -A tests/health.test.ts` Expected: FAIL — `src/app.ts` not
+found.
 
-- [ ] **Step 3: Implement `src/app.ts`** (deps param optional for now; expanded in later phases)
+- [ ] **Step 3: Implement `src/app.ts`** (deps param optional for now; expanded
+      in later phases)
 
 ```ts
 import { Hono } from 'hono'
@@ -409,8 +438,7 @@ export type AppType = ReturnType<typeof createApp>
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test -A tests/health.test.ts`
-Expected: PASS.
+Run: `deno test -A tests/health.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Implement `src/main.ts`**
 
@@ -426,8 +454,8 @@ Deno.serve({ port: config.port }, app.fetch)
 
 - [ ] **Step 6: Smoke-run and commit**
 
-Run: `deno task check && deno test -A tests/health.test.ts`
-Expected: PASS. (Optionally `deno task start` then `curl localhost:3000/health`.)
+Run: `deno task check && deno test -A tests/health.test.ts` Expected: PASS.
+(Optionally `deno task start` then `curl localhost:3000/health`.)
 
 ```bash
 git add src/app.ts src/main.ts tests/health.test.ts
@@ -441,6 +469,7 @@ git commit -m "feat: minimal Hono app with health route and entrypoint"
 ### Task 1.1: docker-compose (MySQL + optional Redis) and drizzle config
 
 **Files:**
+
 - Create: `docker-compose.yml`, `drizzle.config.ts`
 
 - [ ] **Step 1: Write `docker-compose.yml`**
@@ -491,9 +520,11 @@ git commit -m "chore: add MySQL/Redis compose and drizzle config"
 ### Task 1.2: Drizzle schema (`src/db/schema.ts`)
 
 **Files:**
+
 - Create: `src/db/schema.ts`
 
-- [ ] **Step 1: Implement the schema** (users, refresh_tokens, social_accounts, RBAC tables)
+- [ ] **Step 1: Implement the schema** (users, refresh_tokens, social_accounts,
+      RBAC tables)
 
 ```ts
 import {
@@ -555,7 +586,8 @@ export const userRoles = mysqlTable('user_roles', {
 
 - [ ] **Step 2: Typecheck and generate the migration**
 
-Run: `deno check src/db/schema.ts && docker compose up -d mysql && deno task db:generate`
+Run:
+`deno check src/db/schema.ts && docker compose up -d mysql && deno task db:generate`
 Expected: a migration SQL file appears under `src/db/migrations/`.
 
 - [ ] **Step 3: Commit**
@@ -570,6 +602,7 @@ git commit -m "feat: add Drizzle MySQL schema and initial migration"
 ### Task 1.3: DB client (`src/db/client.ts`)
 
 **Files:**
+
 - Create: `src/db/client.ts`
 
 - [ ] **Step 1: Implement**
@@ -591,8 +624,7 @@ export function createDb(config: Config) {
 
 - [ ] **Step 2: Typecheck and commit**
 
-Run: `deno check src/db/client.ts`
-Expected: PASS.
+Run: `deno check src/db/client.ts` Expected: PASS.
 
 ```bash
 git add src/db/client.ts
@@ -604,6 +636,7 @@ git commit -m "feat: add Drizzle MySQL client factory"
 ### Task 1.4: Seed roles & permissions (`src/db/seed.ts`)
 
 **Files:**
+
 - Create: `src/db/seed.ts`, `src/db/rbac-constants.ts`
 
 - [ ] **Step 1: Implement `src/db/rbac-constants.ts`** (shared by seed + tests)
@@ -658,7 +691,10 @@ async function seed() {
     const rid = existing?.id ?? roleId
     for (const key of keys) {
       const pid = permByKey.get(key)!
-      await db.insert(rolePermissions).values({ roleId: rid, permissionId: pid })
+      await db.insert(rolePermissions).values({
+        roleId: rid,
+        permissionId: pid,
+      })
         .onDuplicateKeyUpdate({ set: { roleId: rid } })
     }
   }
@@ -672,8 +708,8 @@ if (import.meta.main) await seed()
 
 - [ ] **Step 3: Run migration + seed against local MySQL**
 
-Run: `deno task db:migrate && deno task db:seed`
-Expected: prints `seed complete`; `roles`, `permissions`, `role_permissions` populated.
+Run: `deno task db:migrate && deno task db:seed` Expected: prints
+`seed complete`; `roles`, `permissions`, `role_permissions` populated.
 
 - [ ] **Step 4: Commit**
 
@@ -689,10 +725,12 @@ git commit -m "feat: seed RBAC roles and permissions"
 ### Task 2.1: UserRepository interface + in-memory impl
 
 **Files:**
+
 - Create: `src/modules/users/users.repository.ts`
 - Test: `tests/users-repository.test.ts`
 
-- [ ] **Step 1: Write the failing test** (drives the in-memory impl, which is also the test fake)
+- [ ] **Step 1: Write the failing test** (drives the in-memory impl, which is
+      also the test fake)
 
 ```ts
 import { assertEquals } from 'jsr:@std/assert'
@@ -722,7 +760,13 @@ Deno.test('in-memory user repo with seeded role grants permissions', async () =>
     admin: ['users:list', 'users:delete:any'],
   })
   const now = new Date()
-  await repo.create({ id: 'u2', email: 'x@y.com', passwordHash: null, createdAt: now, updatedAt: now })
+  await repo.create({
+    id: 'u2',
+    email: 'x@y.com',
+    passwordHash: null,
+    createdAt: now,
+    updatedAt: now,
+  })
   await repo.assignRole('u2', 'admin')
   const access = await repo.findWithAccessById('u2')
   assertEquals(access?.permissions.sort(), ['users:delete:any', 'users:list'])
@@ -731,8 +775,8 @@ Deno.test('in-memory user repo with seeded role grants permissions', async () =>
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test -A tests/users-repository.test.ts`
-Expected: FAIL — module not found.
+Run: `deno test -A tests/users-repository.test.ts` Expected: FAIL — module not
+found.
 
 - [ ] **Step 3: Implement the interface + in-memory impl**
 
@@ -755,7 +799,10 @@ export type UserRepository = {
   findById(id: string): Promise<UserRecord | null>
   findByEmail(email: string): Promise<UserRecord | null>
   findWithAccessById(id: string): Promise<UserWithAccess | null>
-  update(id: string, patch: Partial<Pick<UserRecord, 'email' | 'passwordHash'>>): Promise<UserRecord | null>
+  update(
+    id: string,
+    patch: Partial<Pick<UserRecord, 'email' | 'passwordHash'>>,
+  ): Promise<UserRecord | null>
   delete(id: string): Promise<boolean>
   list(): Promise<UserRecord[]>
   assignRole(userId: string, roleName: string): Promise<void>
@@ -777,7 +824,9 @@ export function createInMemoryUserRepository(
       return Promise.resolve(byId.has(id) ? { ...byId.get(id)! } : null)
     },
     findByEmail(email) {
-      for (const u of byId.values()) if (u.email === email) return Promise.resolve({ ...u })
+      for (const u of byId.values()) {
+        if (u.email === email) return Promise.resolve({ ...u })
+      }
       return Promise.resolve(null)
     },
     findWithAccessById(id) {
@@ -785,8 +834,14 @@ export function createInMemoryUserRepository(
       if (!u) return Promise.resolve(null)
       const roleNames = [...(userRoleNames.get(id) ?? [])]
       const perms = new Set<string>()
-      for (const r of roleNames) for (const p of roleGrants[r] ?? []) perms.add(p)
-      return Promise.resolve({ ...u, roles: roleNames, permissions: [...perms] })
+      for (const r of roleNames) {
+        for (const p of roleGrants[r] ?? []) perms.add(p)
+      }
+      return Promise.resolve({
+        ...u,
+        roles: roleNames,
+        permissions: [...perms],
+      })
     },
     update(id, patch) {
       const u = byId.get(id)
@@ -813,8 +868,7 @@ export function createInMemoryUserRepository(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test -A tests/users-repository.test.ts`
-Expected: PASS (2 tests).
+Run: `deno test -A tests/users-repository.test.ts` Expected: PASS (2 tests).
 
 - [ ] **Step 5: Commit**
 
@@ -828,6 +882,7 @@ git commit -m "feat: UserRepository interface with in-memory implementation"
 ### Task 2.2: Password lib (`src/lib/password.ts`)
 
 **Files:**
+
 - Create: `src/lib/password.ts`
 - Test: `tests/password.test.ts`
 
@@ -847,8 +902,7 @@ Deno.test('hash + verify round-trips', async () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test -A tests/password.test.ts`
-Expected: FAIL — module not found.
+Run: `deno test -A tests/password.test.ts` Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement**
 
@@ -866,8 +920,7 @@ export function verifyPassword(plain: string, hash: string): Promise<boolean> {
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `deno test -A tests/password.test.ts`
-Expected: PASS.
+Run: `deno test -A tests/password.test.ts` Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -881,7 +934,9 @@ git commit -m "feat: add bcrypt password hashing helpers"
 ### Task 2.3: Users schema (Zod DTOs) + UserService (register/get/update/delete/list)
 
 **Files:**
-- Create: `src/modules/users/users.schema.ts`, `src/modules/users/users.service.ts`
+
+- Create: `src/modules/users/users.schema.ts`,
+  `src/modules/users/users.service.ts`
 - Test: `tests/users-service.test.ts`
 
 - [ ] **Step 1: Write the failing test**
@@ -910,14 +965,18 @@ Deno.test('register creates user with default role and hashed password', async (
 Deno.test('register rejects duplicate email', async () => {
   const { svc } = service()
   await svc.register({ email: 'a@b.com', password: 'pw123456' })
-  await assertRejects(() => svc.register({ email: 'a@b.com', password: 'pw123456' }), Error, 'conflict')
+  await assertRejects(
+    () => svc.register({ email: 'a@b.com', password: 'pw123456' }),
+    Error,
+    'conflict',
+  )
 })
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `deno test -A tests/users-service.test.ts`
-Expected: FAIL — modules not found.
+Run: `deno test -A tests/users-service.test.ts` Expected: FAIL — modules not
+found.
 
 - [ ] **Step 3: Implement `src/modules/users/users.schema.ts`**
 
@@ -949,7 +1008,11 @@ export type PublicUser = z.infer<typeof publicUserSchema>
 
 ```ts
 import type { UserRecord, UserRepository } from './users.repository.ts'
-import type { PublicUser, RegisterInput, UpdateUserInput } from './users.schema.ts'
+import type {
+  PublicUser,
+  RegisterInput,
+  UpdateUserInput,
+} from './users.schema.ts'
 import { hashPassword } from '../../lib/password.ts'
 import { AppError } from '../../lib/errors.ts'
 
@@ -985,7 +1048,9 @@ export function createUserService(deps: { repo: UserRepository }) {
     async update(id: string, input: UpdateUserInput): Promise<PublicUser> {
       const patch: Partial<Pick<UserRecord, 'email' | 'passwordHash'>> = {}
       if (input.email) patch.email = input.email
-      if (input.password) patch.passwordHash = await hashPassword(input.password)
+      if (input.password) {
+        patch.passwordHash = await hashPassword(input.password)
+      }
       const u = await repo.update(id, patch)
       if (!u) throw AppError.notFound('user not found')
       return toPublic(u)
@@ -1002,8 +1067,7 @@ export function createUserService(deps: { repo: UserRepository }) {
 
 - [ ] **Step 5: Run test to verify it passes**
 
-Run: `deno test -A tests/users-service.test.ts`
-Expected: PASS (2 tests).
+Run: `deno test -A tests/users-service.test.ts` Expected: PASS (2 tests).
 
 - [ ] **Step 6: Commit**
 
@@ -1017,13 +1081,17 @@ git commit -m "feat: add user Zod DTOs and UserService"
 ### Task 2.4: Deps + injectDeps + onError, wire register route, end-to-end test
 
 **Files:**
-- Create: `src/deps.ts`, `src/middleware/deps.ts`, `src/modules/users/users.routes.ts`, `tests/helpers.ts`
+
+- Create: `src/deps.ts`, `src/middleware/deps.ts`,
+  `src/modules/users/users.routes.ts`, `tests/helpers.ts`
 - Modify: `src/app.ts`, `src/types.ts`
 - Test: `tests/users.test.ts`
 
-> This task introduces the DI seam. `Deps` and `AppEnv` become the stable contract for all later phases.
+> This task introduces the DI seam. `Deps` and `AppEnv` become the stable
+> contract for all later phases.
 
-- [ ] **Step 1: Implement `src/deps.ts`** (the `Deps` contract; `createDeps` grows as services exist)
+- [ ] **Step 1: Implement `src/deps.ts`** (the `Deps` contract; `createDeps`
+      grows as services exist)
 
 ```ts
 import type { Config } from './config.ts'
@@ -1074,7 +1142,8 @@ export function injectDeps(deps: Deps) {
 }
 ```
 
-- [ ] **Step 3: Implement `src/modules/users/users.routes.ts`** (only the register route for now; protected routes added in Phase 3/4)
+- [ ] **Step 3: Implement `src/modules/users/users.routes.ts`** (only the
+      register route for now; protected routes added in Phase 3/4)
 
 ```ts
 import { Hono } from 'hono'
@@ -1092,7 +1161,8 @@ const users = new Hono<AppEnv>()
 export default users
 ```
 
-- [ ] **Step 4: Add `onError` and mount users in `src/app.ts`** — replace the file with a deps-taking version
+- [ ] **Step 4: Add `onError` and mount users in `src/app.ts`** — replace the
+      file with a deps-taking version
 
 ```ts
 import { Hono } from 'hono'
@@ -1122,12 +1192,20 @@ export function createApp(deps: Deps) {
 
   app.onError((err, c) => {
     if (err instanceof AppError) {
-      return c.json({ error: { code: err.code, message: err.message } }, err.status)
+      return c.json(
+        { error: { code: err.code, message: err.message } },
+        err.status,
+      )
     }
     if (err instanceof HTTPException) {
-      return c.json({ error: { code: 'http_error', message: err.message } }, err.status)
+      return c.json(
+        { error: { code: 'http_error', message: err.message } },
+        err.status,
+      )
     }
-    return c.json({ error: { code: 'internal', message: 'Internal Server Error' } }, 500)
+    return c.json({
+      error: { code: 'internal', message: 'Internal Server Error' },
+    }, 500)
   })
 
   return app
@@ -1136,9 +1214,11 @@ export function createApp(deps: Deps) {
 export type AppType = ReturnType<typeof createApp>
 ```
 
-> Update the existing `tests/health.test.ts` call to `createApp(makeTestDeps())` (helper below) so it still compiles.
+> Update the existing `tests/health.test.ts` call to `createApp(makeTestDeps())`
+> (helper below) so it still compiles.
 
-- [ ] **Step 5: Implement `tests/helpers.ts`** (assembles in-memory Deps + the test app)
+- [ ] **Step 5: Implement `tests/helpers.ts`** (assembles in-memory Deps + the
+      test app)
 
 ```ts
 import type { Deps } from '../src/deps.ts'
@@ -1199,8 +1279,9 @@ Deno.test('POST /users validation error -> 400', async () => {
 
 - [ ] **Step 7: Run, fix health test, verify all pass**
 
-Run: `deno test -A tests/users.test.ts tests/health.test.ts`
-Expected: PASS. (`tests/helpers.ts` is the only `makeTestDeps` source; `Deps` here intentionally omits `authService`/`rateStore` until later phases extend the type.)
+Run: `deno test -A tests/users.test.ts tests/health.test.ts` Expected: PASS.
+(`tests/helpers.ts` is the only `makeTestDeps` source; `Deps` here intentionally
+omits `authService`/`rateStore` until later phases extend the type.)
 
 - [ ] **Step 8: Commit**
 
@@ -1214,10 +1295,13 @@ git commit -m "feat: wire deps injection, onError, and register route"
 ### Task 2.5: Drizzle UserRepository implementation
 
 **Files:**
-- Create: `src/modules/users/users.repository.drizzle.ts`
-- Test: covered by an integration test guarded behind `DATABASE_URL` (optional, runs only with MySQL up)
 
-- [ ] **Step 1: Implement the Drizzle repo** (same `UserRepository` interface as the in-memory impl)
+- Create: `src/modules/users/users.repository.drizzle.ts`
+- Test: covered by an integration test guarded behind `DATABASE_URL` (optional,
+  runs only with MySQL up)
+
+- [ ] **Step 1: Implement the Drizzle repo** (same `UserRepository` interface as
+      the in-memory impl)
 
 ```ts
 import { eq, inArray } from 'drizzle-orm'
@@ -1229,7 +1313,11 @@ import {
   userRoles,
   users,
 } from '../../db/schema.ts'
-import type { UserRecord, UserRepository, UserWithAccess } from './users.repository.ts'
+import type {
+  UserRecord,
+  UserRepository,
+  UserWithAccess,
+} from './users.repository.ts'
 
 export function createDrizzleUserRepository(db: Database): UserRepository {
   return {
@@ -1242,7 +1330,9 @@ export function createDrizzleUserRepository(db: Database): UserRepository {
       return row ?? null
     },
     async findByEmail(email) {
-      const row = await db.query.users.findFirst({ where: eq(users.email, email) })
+      const row = await db.query.users.findFirst({
+        where: eq(users.email, email),
+      })
       return row ?? null
     },
     async findWithAccessById(id): Promise<UserWithAccess | null> {
@@ -1256,7 +1346,10 @@ export function createDrizzleUserRepository(db: Database): UserRepository {
       const permRows = roleIds.length
         ? await db.select({ key: permissions.key })
           .from(rolePermissions)
-          .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+          .innerJoin(
+            permissions,
+            eq(rolePermissions.permissionId, permissions.id),
+          )
           .where(inArray(rolePermissions.roleId, roleIds))
         : []
       return {
@@ -1266,7 +1359,9 @@ export function createDrizzleUserRepository(db: Database): UserRepository {
       }
     },
     async update(id, patch) {
-      await db.update(users).set({ ...patch, updatedAt: new Date() }).where(eq(users.id, id))
+      await db.update(users).set({ ...patch, updatedAt: new Date() }).where(
+        eq(users.id, id),
+      )
       return this.findById(id)
     },
     async delete(id) {
@@ -1277,7 +1372,9 @@ export function createDrizzleUserRepository(db: Database): UserRepository {
       return await db.select().from(users)
     },
     async assignRole(userId, roleName) {
-      const role = await db.query.roles.findFirst({ where: eq(roles.name, roleName) })
+      const role = await db.query.roles.findFirst({
+        where: eq(roles.name, roleName),
+      })
       if (!role) throw new Error(`role ${roleName} not seeded`)
       await db.insert(userRoles).values({ userId, roleId: role.id })
         .onDuplicateKeyUpdate({ set: { userId } })
@@ -1309,7 +1406,8 @@ Remove the now-unused `createInMemoryUserRepository` import from `src/deps.ts`.
 Run: `deno check src/modules/users/users.repository.drizzle.ts src/deps.ts`
 Expected: PASS.
 
-- [ ] **Step 4: Optional integration test** `tests/users-repository.drizzle.test.ts` (skips when no DB)
+- [ ] **Step 4: Optional integration test**
+      `tests/users-repository.drizzle.test.ts` (skips when no DB)
 
 ```ts
 import { assertEquals } from 'jsr:@std/assert'
@@ -1327,7 +1425,13 @@ Deno.test({
     const repo = createDrizzleUserRepository(db)
     const id = crypto.randomUUID()
     const now = new Date()
-    await repo.create({ id, email: `${id}@b.com`, passwordHash: 'h', createdAt: now, updatedAt: now })
+    await repo.create({
+      id,
+      email: `${id}@b.com`,
+      passwordHash: 'h',
+      createdAt: now,
+      updatedAt: now,
+    })
     await repo.assignRole(id, 'user')
     const access = await repo.findWithAccessById(id)
     assertEquals(access?.roles, ['user'])
@@ -1339,8 +1443,8 @@ Deno.test({
 
 - [ ] **Step 5: Run (with MySQL up + seeded) and commit**
 
-Run: `deno test -A tests/users-repository.drizzle.test.ts`
-Expected: PASS (or ignored if `DATABASE_URL` unset).
+Run: `deno test -A tests/users-repository.drizzle.test.ts` Expected: PASS (or
+ignored if `DATABASE_URL` unset).
 
 ```bash
 git add src/modules/users/users.repository.drizzle.ts tests/users-repository.drizzle.test.ts
@@ -1354,6 +1458,7 @@ git commit -m "feat: add Drizzle UserRepository implementation"
 ### Task 3.1: JWT + refresh-token libs
 
 **Files:**
+
 - Create: `src/lib/jwt.ts`, `src/lib/tokens.ts`
 - Test: `tests/jwt.test.ts`, `tests/tokens.test.ts`
 
@@ -1381,7 +1486,11 @@ import { assertEquals } from 'jsr:@std/assert'
 import { signAccessToken, verifyAccessToken } from '../src/lib/jwt.ts'
 
 Deno.test('sign + verify access token', async () => {
-  const token = await signAccessToken({ sub: 'u1', secret: 'sec', ttlSeconds: 900 })
+  const token = await signAccessToken({
+    sub: 'u1',
+    secret: 'sec',
+    ttlSeconds: 900,
+  })
   const payload = await verifyAccessToken(token, 'sec')
   assertEquals(payload.sub, 'u1')
 })
@@ -1389,10 +1498,11 @@ Deno.test('sign + verify access token', async () => {
 
 - [ ] **Step 2: Run to verify they fail**
 
-Run: `deno test -A tests/tokens.test.ts tests/jwt.test.ts`
-Expected: FAIL — modules not found.
+Run: `deno test -A tests/tokens.test.ts tests/jwt.test.ts` Expected: FAIL —
+modules not found.
 
-- [ ] **Step 3: Implement `src/lib/tokens.ts`** (`hashToken` is async — `crypto.subtle` has no sync digest)
+- [ ] **Step 3: Implement `src/lib/tokens.ts`** (`hashToken` is async —
+      `crypto.subtle` has no sync digest)
 
 ```ts
 import { encodeHex } from 'jsr:@std/encoding/hex'
@@ -1426,15 +1536,17 @@ export async function signAccessToken(
   return await sign({ sub: opts.sub, exp }, opts.secret)
 }
 
-export async function verifyAccessToken(token: string, secret: string): Promise<AccessPayload> {
+export async function verifyAccessToken(
+  token: string,
+  secret: string,
+): Promise<AccessPayload> {
   return await verify(token, secret) as AccessPayload
 }
 ```
 
 - [ ] **Step 5: Run to verify pass; commit**
 
-Run: `deno test -A tests/tokens.test.ts tests/jwt.test.ts`
-Expected: PASS.
+Run: `deno test -A tests/tokens.test.ts tests/jwt.test.ts` Expected: PASS.
 
 ```bash
 git add src/lib/jwt.ts src/lib/tokens.ts tests/jwt.test.ts tests/tokens.test.ts
@@ -1446,7 +1558,9 @@ git commit -m "feat: add JWT and opaque refresh-token helpers"
 ### Task 3.2: RefreshTokenRepository (interface + in-memory + drizzle)
 
 **Files:**
-- Create: `src/modules/auth/token.repository.ts`, `src/modules/auth/token.repository.drizzle.ts`
+
+- Create: `src/modules/auth/token.repository.ts`,
+  `src/modules/auth/token.repository.drizzle.ts`
 - Test: `tests/token-repository.test.ts`
 
 - [ ] **Step 1: Write failing test (in-memory)**
@@ -1458,10 +1572,20 @@ import { createInMemoryRefreshTokenRepository } from '../src/modules/auth/token.
 Deno.test('store, find valid, rotate', async () => {
   const repo = createInMemoryRefreshTokenRepository()
   const future = new Date(Date.now() + 10000)
-  await repo.create({ id: 't1', userId: 'u1', tokenHash: 'h1', expiresAt: future })
+  await repo.create({
+    id: 't1',
+    userId: 'u1',
+    tokenHash: 'h1',
+    expiresAt: future,
+  })
   assertEquals((await repo.findValidByHash('h1'))?.id, 't1')
 
-  await repo.rotate('t1', { id: 't2', userId: 'u1', tokenHash: 'h2', expiresAt: future })
+  await repo.rotate('t1', {
+    id: 't2',
+    userId: 'u1',
+    tokenHash: 'h2',
+    expiresAt: future,
+  })
   assertEquals(await repo.findValidByHash('h1'), null) // revoked
   assert((await repo.findValidByHash('h2')) !== null)
 })
@@ -1469,8 +1593,7 @@ Deno.test('store, find valid, rotate', async () => {
 
 - [ ] **Step 2: Run to verify fail**
 
-Run: `deno test -A tests/token-repository.test.ts`
-Expected: FAIL.
+Run: `deno test -A tests/token-repository.test.ts` Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/modules/auth/token.repository.ts`**
 
@@ -1484,7 +1607,10 @@ export type RefreshTokenRecord = {
   replacedBy?: string | null
 }
 
-export type NewRefreshToken = Pick<RefreshTokenRecord, 'id' | 'userId' | 'tokenHash' | 'expiresAt'>
+export type NewRefreshToken = Pick<
+  RefreshTokenRecord,
+  'id' | 'userId' | 'tokenHash' | 'expiresAt'
+>
 
 export type RefreshTokenRepository = {
   create(token: NewRefreshToken): Promise<void>
@@ -1496,7 +1622,8 @@ export type RefreshTokenRepository = {
 
 export function createInMemoryRefreshTokenRepository(): RefreshTokenRepository {
   const byId = new Map<string, RefreshTokenRecord>()
-  const isValid = (t: RefreshTokenRecord) => !t.revokedAt && t.expiresAt.getTime() > Date.now()
+  const isValid = (t: RefreshTokenRecord) =>
+    !t.revokedAt && t.expiresAt.getTime() > Date.now()
 
   return {
     create(token) {
@@ -1505,13 +1632,17 @@ export function createInMemoryRefreshTokenRepository(): RefreshTokenRepository {
     },
     findValidByHash(tokenHash) {
       for (const t of byId.values()) {
-        if (t.tokenHash === tokenHash && isValid(t)) return Promise.resolve({ ...t })
+        if (t.tokenHash === tokenHash && isValid(t)) {
+          return Promise.resolve({ ...t })
+        }
       }
       return Promise.resolve(null)
     },
     rotate(oldId, next) {
       const old = byId.get(oldId)
-      if (old) byId.set(oldId, { ...old, revokedAt: new Date(), replacedBy: next.id })
+      if (old) {
+        byId.set(oldId, { ...old, revokedAt: new Date(), replacedBy: next.id })
+      }
       byId.set(next.id, { ...next, revokedAt: null, replacedBy: null })
       return Promise.resolve()
     },
@@ -1536,9 +1667,14 @@ export function createInMemoryRefreshTokenRepository(): RefreshTokenRepository {
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import type { Database } from '../../db/client.ts'
 import { refreshTokens } from '../../db/schema.ts'
-import type { NewRefreshToken, RefreshTokenRepository } from './token.repository.ts'
+import type {
+  NewRefreshToken,
+  RefreshTokenRepository,
+} from './token.repository.ts'
 
-export function createDrizzleRefreshTokenRepository(db: Database): RefreshTokenRepository {
+export function createDrizzleRefreshTokenRepository(
+  db: Database,
+): RefreshTokenRepository {
   return {
     async create(token) {
       await db.insert(refreshTokens).values({ ...token, createdAt: new Date() })
@@ -1560,7 +1696,9 @@ export function createDrizzleRefreshTokenRepository(db: Database): RefreshTokenR
       await db.insert(refreshTokens).values({ ...next, createdAt: new Date() })
     },
     async revoke(id) {
-      await db.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.id, id))
+      await db.update(refreshTokens).set({ revokedAt: new Date() }).where(
+        eq(refreshTokens.id, id),
+      )
     },
     async revokeAllForUser(userId) {
       await db.update(refreshTokens).set({ revokedAt: new Date() }).where(
@@ -1573,7 +1711,8 @@ export function createDrizzleRefreshTokenRepository(db: Database): RefreshTokenR
 
 - [ ] **Step 5: Run to verify pass; commit**
 
-Run: `deno test -A tests/token-repository.test.ts && deno check src/modules/auth/token.repository.drizzle.ts`
+Run:
+`deno test -A tests/token-repository.test.ts && deno check src/modules/auth/token.repository.drizzle.ts`
 Expected: PASS.
 
 ```bash
@@ -1586,6 +1725,7 @@ git commit -m "feat: add RefreshTokenRepository (in-memory + drizzle)"
 ### Task 3.3: AuthService (password grant, refresh grant, revoke)
 
 **Files:**
+
 - Create: `src/modules/auth/auth.schema.ts`, `src/modules/auth/auth.service.ts`
 - Test: `tests/auth-service.test.ts`
 
@@ -1604,7 +1744,12 @@ function setup() {
   const userRepo = createInMemoryUserRepository({ user: [] })
   const tokenRepo = createInMemoryRefreshTokenRepository()
   const userService = createUserService({ repo: userRepo })
-  const authService = createAuthService({ userRepo, tokenRepo, socialRepo: undefined as never, config })
+  const authService = createAuthService({
+    userRepo,
+    tokenRepo,
+    socialRepo: undefined as never,
+    config,
+  })
   return { authService, userService }
 }
 
@@ -1619,7 +1764,11 @@ Deno.test('password grant returns a token pair', async () => {
 Deno.test('password grant rejects bad credentials', async () => {
   const { authService, userService } = setup()
   await userService.register({ email: 'a@b.com', password: 'pw123456' })
-  await assertRejects(() => authService.passwordGrant('a@b.com', 'wrong'), Error, 'unauthorized')
+  await assertRejects(
+    () => authService.passwordGrant('a@b.com', 'wrong'),
+    Error,
+    'unauthorized',
+  )
 })
 
 Deno.test('refresh grant rotates the refresh token', async () => {
@@ -1628,14 +1777,17 @@ Deno.test('refresh grant rotates the refresh token', async () => {
   const first = await authService.passwordGrant('a@b.com', 'pw123456')
   const second = await authService.refreshGrant(first.refresh_token)
   assert(second.refresh_token !== first.refresh_token)
-  await assertRejects(() => authService.refreshGrant(first.refresh_token), Error, 'unauthorized')
+  await assertRejects(
+    () => authService.refreshGrant(first.refresh_token),
+    Error,
+    'unauthorized',
+  )
 })
 ```
 
 - [ ] **Step 2: Run to verify fail**
 
-Run: `deno test -A tests/auth-service.test.ts`
-Expected: FAIL.
+Run: `deno test -A tests/auth-service.test.ts` Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/modules/auth/auth.schema.ts`**
 
@@ -1717,7 +1869,9 @@ export function createAuthService(deps: {
     issueTokens,
     async passwordGrant(email: string, password: string): Promise<TokenPair> {
       const user = await userRepo.findByEmail(email)
-      if (!user || !user.passwordHash) throw AppError.unauthorized('invalid credentials')
+      if (!user || !user.passwordHash) {
+        throw AppError.unauthorized('invalid credentials')
+      }
       if (!(await verifyPassword(password, user.passwordHash))) {
         throw AppError.unauthorized('invalid credentials')
       }
@@ -1748,35 +1902,55 @@ export function createAuthService(deps: {
       }
     },
     async revoke(refreshToken: string): Promise<void> {
-      const existing = await tokenRepo.findValidByHash(await hashToken(refreshToken))
+      const existing = await tokenRepo.findValidByHash(
+        await hashToken(refreshToken),
+      )
       if (existing) await tokenRepo.revoke(existing.id)
     },
     async resolveUser(userId: string) {
       const user = await userRepo.findWithAccessById(userId)
       if (!user) throw AppError.unauthorized('user not found')
-      return { id: user.id, email: user.email, roles: user.roles, permissions: user.permissions }
+      return {
+        id: user.id,
+        email: user.email,
+        roles: user.roles,
+        permissions: user.permissions,
+      }
     },
   }
 }
 ```
 
-> `socialRepo` is referenced in the constructor type now and used in Phase 5. The auth-service test passes `undefined as never` because none of the tested methods touch it.
+> `socialRepo` is referenced in the constructor type now and used in Phase 5.
+> The auth-service test passes `undefined as never` because none of the tested
+> methods touch it.
 
-- [ ] **Step 5: Run; the import of `./social.repository.ts` will fail — create a minimal stub now**
+- [ ] **Step 5: Run; the import of `./social.repository.ts` will fail — create a
+      minimal stub now**
 
-Create `src/modules/auth/social.repository.ts` with just the interface (impl in Phase 5):
+Create `src/modules/auth/social.repository.ts` with just the interface (impl in
+Phase 5):
 
 ```ts
 export type SocialAccountRepository = {
-  findByProviderAccount(provider: string, providerAccountId: string): Promise<{ userId: string } | null>
-  link(account: { id: string; userId: string; provider: string; providerAccountId: string }): Promise<void>
+  findByProviderAccount(
+    provider: string,
+    providerAccountId: string,
+  ): Promise<{ userId: string } | null>
+  link(
+    account: {
+      id: string
+      userId: string
+      provider: string
+      providerAccountId: string
+    },
+  ): Promise<void>
 }
 ```
 
 - [ ] **Step 6: Run to verify pass; commit**
 
-Run: `deno test -A tests/auth-service.test.ts`
-Expected: PASS (3 tests).
+Run: `deno test -A tests/auth-service.test.ts` Expected: PASS (3 tests).
 
 ```bash
 git add src/modules/auth/auth.schema.ts src/modules/auth/auth.service.ts src/modules/auth/social.repository.ts tests/auth-service.test.ts
@@ -1788,6 +1962,7 @@ git commit -m "feat: add AuthService with password/refresh grants and revoke"
 ### Task 3.4: requireAuth middleware
 
 **Files:**
+
 - Create: `src/middleware/auth.ts`
 - Test: covered via routes in Task 3.5
 
@@ -1801,7 +1976,9 @@ import { AppError } from '../lib/errors.ts'
 
 export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
   const header = c.req.header('Authorization')
-  if (!header?.startsWith('Bearer ')) throw AppError.unauthorized('missing bearer token')
+  if (!header?.startsWith('Bearer ')) {
+    throw AppError.unauthorized('missing bearer token')
+  }
   const token = header.slice('Bearer '.length)
   let sub: string
   try {
@@ -1818,8 +1995,9 @@ export const requireAuth = createMiddleware<AppEnv>(async (c, next) => {
 
 - [ ] **Step 2: Typecheck and commit**
 
-Run: `deno check src/middleware/auth.ts`
-Expected: PASS (note: `c.var.authService` requires `Deps` to include `authService` — extend it in Task 3.5).
+Run: `deno check src/middleware/auth.ts` Expected: PASS (note:
+`c.var.authService` requires `Deps` to include `authService` — extend it in Task
+3.5).
 
 ```bash
 git add src/middleware/auth.ts
@@ -1831,7 +2009,9 @@ git commit -m "feat: add requireAuth middleware"
 ### Task 3.5: Extend Deps, auth routes, /users/me, end-to-end auth test
 
 **Files:**
-- Modify: `src/deps.ts`, `tests/helpers.ts`, `src/app.ts`, `src/modules/users/users.routes.ts`
+
+- Modify: `src/deps.ts`, `tests/helpers.ts`, `src/app.ts`,
+  `src/modules/users/users.routes.ts`
 - Create: `src/modules/auth/auth.routes.ts`
 - Test: `tests/auth.test.ts`
 
@@ -1873,13 +2053,16 @@ export type AppEnv = {
 }
 ```
 
-> Create `src/modules/auth/social.repository.drizzle.ts` as a stub now (full impl in Phase 5):
+> Create `src/modules/auth/social.repository.drizzle.ts` as a stub now (full
+> impl in Phase 5):
 
 ```ts
 import type { Database } from '../../db/client.ts'
 import type { SocialAccountRepository } from './social.repository.ts'
 
-export function createDrizzleSocialAccountRepository(_db: Database): SocialAccountRepository {
+export function createDrizzleSocialAccountRepository(
+  _db: Database,
+): SocialAccountRepository {
   return {
     findByProviderAccount: () => Promise.resolve(null),
     link: () => Promise.resolve(),
@@ -1887,7 +2070,8 @@ export function createDrizzleSocialAccountRepository(_db: Database): SocialAccou
 }
 ```
 
-- [ ] **Step 2: Update `tests/helpers.ts`** to assemble the full Deps with in-memory repos
+- [ ] **Step 2: Update `tests/helpers.ts`** to assemble the full Deps with
+      in-memory repos
 
 ```ts
 import type { Deps } from '../src/deps.ts'
@@ -1902,14 +2086,24 @@ import type { SocialAccountRepository } from '../src/modules/auth/social.reposit
 
 const testEnv = { DATABASE_URL: 'x', JWT_SECRET: 'test-secret' }
 
-export function makeTestDeps(): { deps: Deps; userRepo: ReturnType<typeof createInMemoryUserRepository>; socialRepo: SocialAccountRepository } {
+export function makeTestDeps(): {
+  deps: Deps
+  userRepo: ReturnType<typeof createInMemoryUserRepository>
+  socialRepo: SocialAccountRepository
+} {
   const config = loadConfig(testEnv)
   const userRepo = createInMemoryUserRepository(ROLE_GRANTS)
   const tokenRepo = createInMemoryRefreshTokenRepository()
   const social = new Map<string, string>()
   const socialRepo: SocialAccountRepository = {
-    findByProviderAccount: (p, id) => Promise.resolve(social.has(`${p}:${id}`) ? { userId: social.get(`${p}:${id}`)! } : null),
-    link: (a) => { social.set(`${a.provider}:${a.providerAccountId}`, a.userId); return Promise.resolve() },
+    findByProviderAccount: (p, id) =>
+      Promise.resolve(
+        social.has(`${p}:${id}`) ? { userId: social.get(`${p}:${id}`)! } : null,
+      ),
+    link: (a) => {
+      social.set(`${a.provider}:${a.providerAccountId}`, a.userId)
+      return Promise.resolve()
+    },
   }
   const deps: Deps = {
     config,
@@ -1924,18 +2118,26 @@ export function makeTestApp() {
   return { app: createApp(deps), userRepo }
 }
 
-export async function authHeader(app: ReturnType<typeof createApp>, email: string, password: string) {
+export async function authHeader(
+  app: ReturnType<typeof createApp>,
+  email: string,
+  password: string,
+) {
   const res = await app.request('/oauth/token', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ grant_type: 'password', username: email, password }),
   })
   const body = await res.json()
-  return { Authorization: `Bearer ${body.access_token}`, refresh: body.refresh_token as string }
+  return {
+    Authorization: `Bearer ${body.access_token}`,
+    refresh: body.refresh_token as string,
+  }
 }
 ```
 
-> Update earlier tests (`tests/users.test.ts`, `tests/health.test.ts`) to destructure `const { app } = makeTestApp()`.
+> Update earlier tests (`tests/users.test.ts`, `tests/health.test.ts`) to
+> destructure `const { app } = makeTestApp()`.
 
 - [ ] **Step 3: Implement `src/modules/auth/auth.routes.ts`**
 
@@ -2023,7 +2225,10 @@ Deno.test('refresh rotation + revoke', async () => {
   const refreshed = await app.request('/oauth/token', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ grant_type: 'refresh_token', refresh_token: refresh }),
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refresh,
+    }),
   })
   assertEquals(refreshed.status, 200)
   const next = await refreshed.json()
@@ -2046,8 +2251,7 @@ Deno.test('/users/me without token -> 401', async () => {
 
 - [ ] **Step 7: Run full suite; commit**
 
-Run: `deno task check && deno test -A`
-Expected: PASS (all tests).
+Run: `deno task check && deno test -A` Expected: PASS (all tests).
 
 ```bash
 git add src/deps.ts src/app.ts tests/helpers.ts tests/users.test.ts tests/health.test.ts src/modules/auth/auth.routes.ts src/modules/auth/social.repository.drizzle.ts src/modules/users/users.routes.ts tests/auth.test.ts
@@ -2061,6 +2265,7 @@ git commit -m "feat: OAuth2 token endpoint, /users/me, end-to-end auth"
 ### Task 4.1: authorize middleware
 
 **Files:**
+
 - Create: `src/middleware/authorize.ts`
 - Test: `tests/authorize.test.ts`
 
@@ -2069,37 +2274,70 @@ git commit -m "feat: OAuth2 token endpoint, /users/me, end-to-end auth"
 ```ts
 import { assertEquals } from 'jsr:@std/assert'
 import { Hono } from 'hono'
-import { requirePermission, requireSelfOrPermission } from '../src/middleware/authorize.ts'
+import {
+  requirePermission,
+  requireSelfOrPermission,
+} from '../src/middleware/authorize.ts'
 import { AppError } from '../src/lib/errors.ts'
 
 function appWith(user: { id: string; permissions: string[] }) {
   const app = new Hono()
     .use('*', async (c, next) => {
-      c.set('user', { id: user.id, email: 'x', roles: [], permissions: user.permissions })
+      c.set('user', {
+        id: user.id,
+        email: 'x',
+        roles: [],
+        permissions: user.permissions,
+      })
       await next()
     })
     .get('/list', requirePermission('users:list'), (c) => c.text('ok'))
-    .get('/u/:id', requireSelfOrPermission('id', 'users:read:any'), (c) => c.text('ok'))
-  app.onError((e, c) => e instanceof AppError ? c.json({ code: e.code }, e.status) : c.text('err', 500))
+    .get(
+      '/u/:id',
+      requireSelfOrPermission('id', 'users:read:any'),
+      (c) => c.text('ok'),
+    )
+  app.onError((e, c) =>
+    e instanceof AppError
+      ? c.json({ code: e.code }, e.status)
+      : c.text('err', 500)
+  )
   return app
 }
 
 Deno.test('requirePermission allows/denies', async () => {
-  assertEquals((await appWith({ id: 'u1', permissions: ['users:list'] }).request('/list')).status, 200)
-  assertEquals((await appWith({ id: 'u1', permissions: [] }).request('/list')).status, 403)
+  assertEquals(
+    (await appWith({ id: 'u1', permissions: ['users:list'] }).request('/list'))
+      .status,
+    200,
+  )
+  assertEquals(
+    (await appWith({ id: 'u1', permissions: [] }).request('/list')).status,
+    403,
+  )
 })
 
 Deno.test('requireSelfOrPermission: owner ok, other forbidden, override ok', async () => {
-  assertEquals((await appWith({ id: 'u1', permissions: [] }).request('/u/u1')).status, 200)
-  assertEquals((await appWith({ id: 'u1', permissions: [] }).request('/u/u2')).status, 403)
-  assertEquals((await appWith({ id: 'u1', permissions: ['users:read:any'] }).request('/u/u2')).status, 200)
+  assertEquals(
+    (await appWith({ id: 'u1', permissions: [] }).request('/u/u1')).status,
+    200,
+  )
+  assertEquals(
+    (await appWith({ id: 'u1', permissions: [] }).request('/u/u2')).status,
+    403,
+  )
+  assertEquals(
+    (await appWith({ id: 'u1', permissions: ['users:read:any'] }).request(
+      '/u/u2',
+    )).status,
+    200,
+  )
 })
 ```
 
 - [ ] **Step 2: Run to verify fail**
 
-Run: `deno test -A tests/authorize.test.ts`
-Expected: FAIL.
+Run: `deno test -A tests/authorize.test.ts` Expected: FAIL.
 
 - [ ] **Step 3: Implement `src/middleware/authorize.ts`**
 
@@ -2130,8 +2368,7 @@ export function requireSelfOrPermission(paramName: string, permission: string) {
 
 - [ ] **Step 4: Run to verify pass; commit**
 
-Run: `deno test -A tests/authorize.test.ts`
-Expected: PASS.
+Run: `deno test -A tests/authorize.test.ts` Expected: PASS.
 
 ```bash
 git add src/middleware/authorize.ts tests/authorize.test.ts
@@ -2143,6 +2380,7 @@ git commit -m "feat: add RBAC authorize middleware"
 ### Task 4.2: Protected user routes (list/get/update/delete) + RBAC test
 
 **Files:**
+
 - Modify: `src/modules/users/users.routes.ts`
 - Test: `tests/rbac.test.ts`
 
@@ -2154,7 +2392,10 @@ import { zValidator } from '@hono/zod-validator'
 import type { AppEnv } from '../../deps.ts'
 import { registerSchema, updateUserSchema } from './users.schema.ts'
 import { requireAuth } from '../../middleware/auth.ts'
-import { requirePermission, requireSelfOrPermission } from '../../middleware/authorize.ts'
+import {
+  requirePermission,
+  requireSelfOrPermission,
+} from '../../middleware/authorize.ts'
 
 const users = new Hono<AppEnv>()
   .post('/', zValidator('json', registerSchema), async (c) => {
@@ -2165,27 +2406,43 @@ const users = new Hono<AppEnv>()
   .get('/', requireAuth, requirePermission('users:list'), async (c) => {
     return c.json(await c.var.userService.list(), 200)
   })
-  .get('/:id', requireAuth, requireSelfOrPermission('id', 'users:read:any'), async (c) => {
-    return c.json(await c.var.userService.getById(c.req.param('id')), 200)
-  })
+  .get(
+    '/:id',
+    requireAuth,
+    requireSelfOrPermission('id', 'users:read:any'),
+    async (c) => {
+      return c.json(await c.var.userService.getById(c.req.param('id')), 200)
+    },
+  )
   .patch(
     '/:id',
     requireAuth,
     requireSelfOrPermission('id', 'users:update:any'),
     zValidator('json', updateUserSchema),
     async (c) => {
-      return c.json(await c.var.userService.update(c.req.param('id'), c.req.valid('json')), 200)
+      return c.json(
+        await c.var.userService.update(c.req.param('id'), c.req.valid('json')),
+        200,
+      )
     },
   )
-  .delete('/:id', requireAuth, requireSelfOrPermission('id', 'users:delete:any'), async (c) => {
-    await c.var.userService.remove(c.req.param('id'))
-    return c.body(null, 204)
-  })
+  .delete(
+    '/:id',
+    requireAuth,
+    requireSelfOrPermission('id', 'users:delete:any'),
+    async (c) => {
+      await c.var.userService.remove(c.req.param('id'))
+      return c.body(null, 204)
+    },
+  )
 
 export default users
 ```
 
-- [ ] **Step 2: Add a helper to grant admin in tests** — extend `tests/helpers.ts` `makeTestApp` to expose `userRepo` (already returned) and re-export `assignRole`. (No code change needed; `userRepo.assignRole` is already accessible.)
+- [ ] **Step 2: Add a helper to grant admin in tests** — extend
+      `tests/helpers.ts` `makeTestApp` to expose `userRepo` (already returned)
+      and re-export `assignRole`. (No code change needed; `userRepo.assignRole`
+      is already accessible.)
 
 - [ ] **Step 3: Write `tests/rbac.test.ts`**
 
@@ -2193,7 +2450,10 @@ export default users
 import { assertEquals } from 'jsr:@std/assert'
 import { authHeader, makeTestApp } from './helpers.ts'
 
-async function registerAndId(app: ReturnType<typeof makeTestApp>['app'], email: string) {
+async function registerAndId(
+  app: ReturnType<typeof makeTestApp>['app'],
+  email: string,
+) {
   const res = await app.request('/users', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -2206,7 +2466,10 @@ Deno.test('non-admin cannot list users', async () => {
   const { app } = makeTestApp()
   await registerAndId(app, 'a@b.com')
   const { Authorization } = await authHeader(app, 'a@b.com', 'pw123456')
-  assertEquals((await app.request('/users', { headers: { Authorization } })).status, 403)
+  assertEquals(
+    (await app.request('/users', { headers: { Authorization } })).status,
+    403,
+  )
 })
 
 Deno.test('admin can list users', async () => {
@@ -2214,7 +2477,10 @@ Deno.test('admin can list users', async () => {
   const id = await registerAndId(app, 'admin@b.com')
   await userRepo.assignRole(id, 'admin')
   const { Authorization } = await authHeader(app, 'admin@b.com', 'pw123456')
-  assertEquals((await app.request('/users', { headers: { Authorization } })).status, 200)
+  assertEquals(
+    (await app.request('/users', { headers: { Authorization } })).status,
+    200,
+  )
 })
 
 Deno.test('user can read self but not others; admin can read others', async () => {
@@ -2222,19 +2488,33 @@ Deno.test('user can read self but not others; admin can read others', async () =
   const aId = await registerAndId(app, 'a@b.com')
   const bId = await registerAndId(app, 'b@b.com')
   const aAuth = await authHeader(app, 'a@b.com', 'pw123456')
-  assertEquals((await app.request(`/users/${aId}`, { headers: { Authorization: aAuth.Authorization } })).status, 200)
-  assertEquals((await app.request(`/users/${bId}`, { headers: { Authorization: aAuth.Authorization } })).status, 403)
+  assertEquals(
+    (await app.request(`/users/${aId}`, {
+      headers: { Authorization: aAuth.Authorization },
+    })).status,
+    200,
+  )
+  assertEquals(
+    (await app.request(`/users/${bId}`, {
+      headers: { Authorization: aAuth.Authorization },
+    })).status,
+    403,
+  )
 
   await userRepo.assignRole(aId, 'admin')
   const aAdmin = await authHeader(app, 'a@b.com', 'pw123456')
-  assertEquals((await app.request(`/users/${bId}`, { headers: { Authorization: aAdmin.Authorization } })).status, 200)
+  assertEquals(
+    (await app.request(`/users/${bId}`, {
+      headers: { Authorization: aAdmin.Authorization },
+    })).status,
+    200,
+  )
 })
 ```
 
 - [ ] **Step 4: Run; commit**
 
-Run: `deno task check && deno test -A tests/rbac.test.ts`
-Expected: PASS.
+Run: `deno task check && deno test -A tests/rbac.test.ts` Expected: PASS.
 
 ```bash
 git add src/modules/users/users.routes.ts tests/rbac.test.ts
@@ -2248,7 +2528,9 @@ git commit -m "feat: RBAC-protected user CRUD routes"
 ### Task 5.1: SocialAccountRepository (drizzle impl) + loginWithGoogle service method
 
 **Files:**
-- Modify: `src/modules/auth/social.repository.drizzle.ts`, `src/modules/auth/auth.service.ts`
+
+- Modify: `src/modules/auth/social.repository.drizzle.ts`,
+  `src/modules/auth/auth.service.ts`
 - Test: `tests/social-login.test.ts`
 
 - [ ] **Step 1: Write failing test** (service-level, stubbed profile)
@@ -2270,8 +2552,14 @@ Deno.test('loginWithGoogle creates + links a new user, issues tokens', async () 
 
 Deno.test('loginWithGoogle is idempotent for the same google account', async () => {
   const { deps, userRepo } = makeTestDeps()
-  await deps.authService.loginWithGoogle({ providerAccountId: 'g-1', email: 'g@b.com' })
-  await deps.authService.loginWithGoogle({ providerAccountId: 'g-1', email: 'g@b.com' })
+  await deps.authService.loginWithGoogle({
+    providerAccountId: 'g-1',
+    email: 'g@b.com',
+  })
+  await deps.authService.loginWithGoogle({
+    providerAccountId: 'g-1',
+    email: 'g@b.com',
+  })
   const all = await userRepo.list()
   assertEquals(all.filter((u) => u.email === 'g@b.com').length, 1)
 })
@@ -2281,10 +2569,11 @@ Deno.test('loginWithGoogle is idempotent for the same google account', async () 
 
 - [ ] **Step 2: Run to verify fail**
 
-Run: `deno test -A tests/social-login.test.ts`
-Expected: FAIL — `loginWithGoogle` not defined.
+Run: `deno test -A tests/social-login.test.ts` Expected: FAIL —
+`loginWithGoogle` not defined.
 
-- [ ] **Step 3: Add `loginWithGoogle` to `src/modules/auth/auth.service.ts`** (inside the returned object)
+- [ ] **Step 3: Add `loginWithGoogle` to `src/modules/auth/auth.service.ts`**
+      (inside the returned object)
 
 ```ts
     async loginWithGoogle(profile: { providerAccountId: string; email: string }): Promise<TokenPair> {
@@ -2313,7 +2602,8 @@ Expected: FAIL — `loginWithGoogle` not defined.
     },
 ```
 
-- [ ] **Step 4: Implement the real Drizzle social repo** (`src/modules/auth/social.repository.drizzle.ts`)
+- [ ] **Step 4: Implement the real Drizzle social repo**
+      (`src/modules/auth/social.repository.drizzle.ts`)
 
 ```ts
 import { and, eq } from 'drizzle-orm'
@@ -2321,7 +2611,9 @@ import type { Database } from '../../db/client.ts'
 import { socialAccounts } from '../../db/schema.ts'
 import type { SocialAccountRepository } from './social.repository.ts'
 
-export function createDrizzleSocialAccountRepository(db: Database): SocialAccountRepository {
+export function createDrizzleSocialAccountRepository(
+  db: Database,
+): SocialAccountRepository {
   return {
     async findByProviderAccount(provider, providerAccountId) {
       const row = await db.query.socialAccounts.findFirst({
@@ -2333,7 +2625,10 @@ export function createDrizzleSocialAccountRepository(db: Database): SocialAccoun
       return row ? { userId: row.userId } : null
     },
     async link(account) {
-      await db.insert(socialAccounts).values({ ...account, createdAt: new Date() })
+      await db.insert(socialAccounts).values({
+        ...account,
+        createdAt: new Date(),
+      })
     },
   }
 }
@@ -2341,7 +2636,8 @@ export function createDrizzleSocialAccountRepository(db: Database): SocialAccoun
 
 - [ ] **Step 5: Run to verify pass; commit**
 
-Run: `deno test -A tests/social-login.test.ts && deno check src/modules/auth/social.repository.drizzle.ts`
+Run:
+`deno test -A tests/social-login.test.ts && deno check src/modules/auth/social.repository.drizzle.ts`
 Expected: PASS.
 
 ```bash
@@ -2354,6 +2650,7 @@ git commit -m "feat: Google account linking + loginWithGoogle token issuance"
 ### Task 5.2: Google OAuth routes
 
 **Files:**
+
 - Modify: `src/modules/auth/auth.routes.ts`
 
 - [ ] **Step 1: Add the Google routes** (append to the chained `auth` app)
@@ -2381,12 +2678,15 @@ import { googleAuth } from '@hono/oauth-providers/google'
   })
 ```
 
-> The `googleAuth` middleware both starts the flow and handles the callback. `GET /oauth/google` simply enters the middleware path. The provider sets `c.get('user-google')` with the verified profile. Real credentials in `.env` are required to exercise this manually; the unit test in 5.1 covers the service logic without a live round-trip.
+> The `googleAuth` middleware both starts the flow and handles the callback.
+> `GET /oauth/google` simply enters the middleware path. The provider sets
+> `c.get('user-google')` with the verified profile. Real credentials in `.env`
+> are required to exercise this manually; the unit test in 5.1 covers the
+> service logic without a live round-trip.
 
 - [ ] **Step 2: Typecheck and manual smoke (optional, needs real Google creds)**
 
-Run: `deno check src/modules/auth/auth.routes.ts`
-Expected: PASS.
+Run: `deno check src/modules/auth/auth.routes.ts` Expected: PASS.
 
 - [ ] **Step 3: Commit**
 
@@ -2402,11 +2702,14 @@ git commit -m "feat: add Google social-login routes"
 ### Task 6.1: RateLimitStore (interface + memory impl) and middleware
 
 **Files:**
+
 - Create: `src/lib/rate-limit-store.ts`, `src/middleware/rate-limit.ts`
 - Modify: `src/deps.ts`, `src/types.ts`, `tests/helpers.ts`, `src/app.ts`
 - Test: `tests/rate-limit.test.ts`
 
-- [ ] **Step 1: Implement `src/lib/rate-limit-store.ts`** (memory store implementing `hono-rate-limiter`'s `Store` shape; Redis impl stubbed with a TODO-free guard)
+- [ ] **Step 1: Implement `src/lib/rate-limit-store.ts`** (memory store
+      implementing `hono-rate-limiter`'s `Store` shape; Redis impl stubbed with
+      a TODO-free guard)
 
 ```ts
 import type { Store } from 'hono-rate-limiter'
@@ -2427,10 +2730,16 @@ export function createMemoryRateLimitStore(): RateLimitStore {
       if (!entry || entry.resetAt <= now) {
         const fresh = { count: 1, resetAt: now + windowMs }
         hits.set(key, fresh)
-        return Promise.resolve({ totalHits: 1, resetTime: new Date(fresh.resetAt) })
+        return Promise.resolve({
+          totalHits: 1,
+          resetTime: new Date(fresh.resetAt),
+        })
       }
       entry.count++
-      return Promise.resolve({ totalHits: entry.count, resetTime: new Date(entry.resetAt) })
+      return Promise.resolve({
+        totalHits: entry.count,
+        resetTime: new Date(entry.resetAt),
+      })
     },
     decrement(key) {
       const entry = hits.get(key)
@@ -2449,7 +2758,10 @@ export function createRedisRateLimitStore(_redisUrl: string): RateLimitStore {
 }
 ```
 
-> Verify the exact `Store` method signatures against the installed `hono-rate-limiter` version and adjust (`init/increment/decrement/resetKey`). If the version differs, match its `Store` interface — the memory semantics above stay the same.
+> Verify the exact `Store` method signatures against the installed
+> `hono-rate-limiter` version and adjust (`init/increment/decrement/resetKey`).
+> If the version differs, match its `Store` interface — the memory semantics
+> above stay the same.
 
 - [ ] **Step 2: Implement `src/middleware/rate-limit.ts`**
 
@@ -2475,7 +2787,8 @@ export function makeRateLimiter(
 }
 ```
 
-- [ ] **Step 3: Add `rateStore` to `Deps`/`createDeps`** (`src/deps.ts`) and `AppVariables` (`src/types.ts`)
+- [ ] **Step 3: Add `rateStore` to `Deps`/`createDeps`** (`src/deps.ts`) and
+      `AppVariables` (`src/types.ts`)
 
 In `src/deps.ts` add import + field:
 
@@ -2488,7 +2801,8 @@ import { createMemoryRateLimitStore, createRedisRateLimitStore } from './lib/rat
   rateStore: config.redisUrl ? createRedisRateLimitStore(config.redisUrl) : createMemoryRateLimitStore(),
 ```
 
-In `tests/helpers.ts` add `rateStore: createMemoryRateLimitStore()` to the `deps` object (import the factory).
+In `tests/helpers.ts` add `rateStore: createMemoryRateLimitStore()` to the
+`deps` object (import the factory).
 
 - [ ] **Step 4: Apply limiters in `src/app.ts`**
 
@@ -2503,7 +2817,8 @@ import { makeRateLimiter } from './middleware/rate-limit.ts'
     .use('/oauth/token', makeRateLimiter(deps.rateStore, { windowMs: deps.config.rateLimit.windowMs, limit: 10 }))
 ```
 
-- [ ] **Step 5: Write `tests/rate-limit.test.ts`** (uses a tiny dedicated app with limit=2 to stay deterministic)
+- [ ] **Step 5: Write `tests/rate-limit.test.ts`** (uses a tiny dedicated app
+      with limit=2 to stay deterministic)
 
 ```ts
 import { assertEquals } from 'jsr:@std/assert'
@@ -2513,20 +2828,42 @@ import { makeRateLimiter } from '../src/middleware/rate-limit.ts'
 
 Deno.test('limiter blocks after the configured number of hits', async () => {
   const app = new Hono()
-    .use('*', (c, next) => { c.set('user', undefined as never); return next() })
-    .use('*', makeRateLimiter(createMemoryRateLimitStore(), { windowMs: 60000, limit: 2 }))
+    .use('*', (c, next) => {
+      c.set('user', undefined as never)
+      return next()
+    })
+    .use(
+      '*',
+      makeRateLimiter(createMemoryRateLimitStore(), {
+        windowMs: 60000,
+        limit: 2,
+      }),
+    )
     .get('/', (c) => c.text('ok'))
 
-  assertEquals((await app.request('/', { headers: { 'x-forwarded-for': '1.1.1.1' } })).status, 200)
-  assertEquals((await app.request('/', { headers: { 'x-forwarded-for': '1.1.1.1' } })).status, 200)
-  assertEquals((await app.request('/', { headers: { 'x-forwarded-for': '1.1.1.1' } })).status, 429)
+  assertEquals(
+    (await app.request('/', { headers: { 'x-forwarded-for': '1.1.1.1' } }))
+      .status,
+    200,
+  )
+  assertEquals(
+    (await app.request('/', { headers: { 'x-forwarded-for': '1.1.1.1' } }))
+      .status,
+    200,
+  )
+  assertEquals(
+    (await app.request('/', { headers: { 'x-forwarded-for': '1.1.1.1' } }))
+      .status,
+    429,
+  )
 })
 ```
 
 - [ ] **Step 6: Run; commit**
 
 Run: `deno task check && deno test -A tests/rate-limit.test.ts && deno test -A`
-Expected: PASS (whole suite — confirm global limiter's default 100 limit doesn't trip existing tests; if any test makes >100 requests, raise the test env limit).
+Expected: PASS (whole suite — confirm global limiter's default 100 limit doesn't
+trip existing tests; if any test makes >100 requests, raise the test env limit).
 
 ```bash
 git add src/lib/rate-limit-store.ts src/middleware/rate-limit.ts src/deps.ts src/types.ts tests/helpers.ts src/app.ts tests/rate-limit.test.ts
@@ -2540,7 +2877,9 @@ git commit -m "feat: pluggable rate limiting (memory store) with auth throttle"
 ### Task 7.1: Describe routes and serve spec + Scalar UI
 
 **Files:**
-- Modify: `src/modules/users/users.routes.ts`, `src/modules/auth/auth.routes.ts`, `src/app.ts`
+
+- Modify: `src/modules/users/users.routes.ts`,
+  `src/modules/auth/auth.routes.ts`, `src/app.ts`
 - Test: `tests/openapi.test.ts`
 
 - [ ] **Step 1: Write failing test**
@@ -2568,10 +2907,11 @@ Deno.test('serves Scalar docs page', async () => {
 
 - [ ] **Step 2: Run to verify fail**
 
-Run: `deno test -A tests/openapi.test.ts`
-Expected: FAIL — `/openapi` 404.
+Run: `deno test -A tests/openapi.test.ts` Expected: FAIL — `/openapi` 404.
 
-- [ ] **Step 3: Add `describeRoute` to the register route** (`src/modules/users/users.routes.ts`) — annotate at least one route so paths populate
+- [ ] **Step 3: Add `describeRoute` to the register route**
+      (`src/modules/users/users.routes.ts`) — annotate at least one route so
+      paths populate
 
 ```ts
 import { describeRoute } from 'hono-openapi'
@@ -2596,18 +2936,27 @@ import { describeRoute } from 'hono-openapi'
 import { openAPISpecs } from 'hono-openapi'
 import { apiReference } from '@scalar/hono-api-reference'
 // after routes are mounted:
-  app.get('/openapi', openAPISpecs(app, {
-    documentation: { info: { title: 'API Boilerplate', version: '1.0.0', description: 'Hono + Deno boilerplate' } },
-  }))
-  app.get('/docs', apiReference({ spec: { url: '/openapi' } }))
+app.get(
+  '/openapi',
+  openAPISpecs(app, {
+    documentation: {
+      info: {
+        title: 'API Boilerplate',
+        version: '1.0.0',
+        description: 'Hono + Deno boilerplate',
+      },
+    },
+  }),
+)
+app.get('/docs', apiReference({ spec: { url: '/openapi' } }))
 ```
 
-> `openAPISpecs(app, …)` must be called after all `.route()` mounts so it can introspect the registered paths. Place it just before `app.onError`.
+> `openAPISpecs(app, …)` must be called after all `.route()` mounts so it can
+> introspect the registered paths. Place it just before `app.onError`.
 
 - [ ] **Step 5: Run to verify pass; commit**
 
-Run: `deno test -A tests/openapi.test.ts`
-Expected: PASS.
+Run: `deno test -A tests/openapi.test.ts` Expected: PASS.
 
 ```bash
 git add src/modules/users/users.routes.ts src/app.ts tests/openapi.test.ts
@@ -2621,10 +2970,12 @@ git commit -m "feat: serve OpenAPI spec and Scalar docs"
 ### Task 8.1: Export `hc` client typed by `AppType`
 
 **Files:**
+
 - Create: `src/client.ts`
 - Test: `tests/client.test.ts`
 
-- [ ] **Step 1: Write failing test** (drive the client against the in-process app via the `fetch` option)
+- [ ] **Step 1: Write failing test** (drive the client against the in-process
+      app via the `fetch` option)
 
 ```ts
 import { assertEquals } from 'jsr:@std/assert'
@@ -2643,8 +2994,9 @@ Deno.test('typed client hits /health', async () => {
 
 - [ ] **Step 2: Run to verify fail**
 
-Run: `deno test -A tests/client.test.ts`
-Expected: FAIL — `src/client.ts` missing (and confirm `.health.$get` type resolves; if not, ensure routes are chained without `Hono` return annotations).
+Run: `deno test -A tests/client.test.ts` Expected: FAIL — `src/client.ts`
+missing (and confirm `.health.$get` type resolves; if not, ensure routes are
+chained without `Hono` return annotations).
 
 - [ ] **Step 3: Implement `src/client.ts`**
 
@@ -2661,8 +3013,7 @@ export function createClient(baseUrl: string, init?: Parameters<typeof hc>[1]) {
 
 - [ ] **Step 4: Run to verify pass; commit**
 
-Run: `deno test -A tests/client.test.ts && deno task check`
-Expected: PASS.
+Run: `deno test -A tests/client.test.ts && deno task check` Expected: PASS.
 
 ```bash
 git add src/client.ts tests/client.test.ts
@@ -2676,6 +3027,7 @@ git commit -m "feat: export type-safe hc RPC client"
 ### Task 9.1: husky + gitleaks pre-commit
 
 **Files:**
+
 - Create: `package.json`, `.husky/pre-commit`, `.gitleaks.toml`
 
 - [ ] **Step 1: Write `package.json`** (husky only)
@@ -2691,8 +3043,8 @@ git commit -m "feat: export type-safe hc RPC client"
 
 - [ ] **Step 2: Install husky**
 
-Run: `npm install && npx husky init`
-Expected: creates `.husky/` and a sample `pre-commit`.
+Run: `npm install && npx husky init` Expected: creates `.husky/` and a sample
+`pre-commit`.
 
 - [ ] **Step 3: Write `.husky/pre-commit`**
 
@@ -2717,8 +3069,9 @@ paths = ['''\.env\.example''']
 
 - [ ] **Step 5: Verify the hook fires**
 
-Run: `git add -A && git commit -m "test"` (should run all four checks). If gitleaks is installed via asdf and all checks pass, amend/redo the real commit below.
-Expected: checks run; commit proceeds when clean.
+Run: `git add -A && git commit -m "test"` (should run all four checks). If
+gitleaks is installed via asdf and all checks pass, amend/redo the real commit
+below. Expected: checks run; commit proceeds when clean.
 
 - [ ] **Step 6: Commit**
 
@@ -2727,16 +3080,24 @@ git add package.json package-lock.json .husky/pre-commit .gitleaks.toml
 git commit -m "chore: add husky pre-commit running gitleaks + deno checks"
 ```
 
-> Note: husky's `prepare` script writes `core.hooksPath=.husky/_`. Since `node_modules/` is gitignored, contributors run `npm install` once after clone. `.gitignore` already excludes `node_modules/`.
+> Note: husky's `prepare` script writes `core.hooksPath=.husky/_`. Since
+> `node_modules/` is gitignored, contributors run `npm install` once after
+> clone. `.gitignore` already excludes `node_modules/`.
 
 ---
 
 ### Task 9.2: README
 
 **Files:**
+
 - Create: `README.md`
 
-- [ ] **Step 1: Write `README.md`** covering: prerequisites (asdf, docker), `asdf install`, `cp .env.example .env`, `docker compose up -d mysql`, `deno task db:migrate`, `deno task db:seed`, `deno task dev`, the endpoint table, `deno task test`, `deno task check:all`, and how to enable Redis (`docker compose --profile redis up -d` + set `REDIS_URL`). Document Google OAuth env setup and the `/docs` Scalar URL.
+- [ ] **Step 1: Write `README.md`** covering: prerequisites (asdf, docker),
+      `asdf install`, `cp .env.example .env`, `docker compose up -d mysql`,
+      `deno task db:migrate`, `deno task db:seed`, `deno task dev`, the endpoint
+      table, `deno task test`, `deno task check:all`, and how to enable Redis
+      (`docker compose --profile redis up -d` + set `REDIS_URL`). Document
+      Google OAuth env setup and the `/docs` Scalar URL.
 
 - [ ] **Step 2: Commit**
 
@@ -2751,12 +3112,13 @@ git commit -m "docs: add README with setup and usage"
 
 - [ ] **Run the whole gate**
 
-Run: `deno task check:all && deno test -A`
-Expected: fmt clean, lint clean, types clean, all tests pass.
+Run: `deno task check:all && deno test -A` Expected: fmt clean, lint clean,
+types clean, all tests pass.
 
 - [ ] **Manual smoke (with MySQL up + seeded)**
 
 Run: `deno task db:migrate && deno task db:seed && deno task dev`, then:
+
 - `curl localhost:3000/health` → `{"status":"ok"}`
 - register → `POST /users`
 - `POST /oauth/token` (password grant) → token pair
@@ -2767,7 +3129,20 @@ Run: `deno task db:migrate && deno task db:seed && deno task dev`, then:
 
 ## Notes on sequencing & risk
 
-- **Cross-phase type seam:** `Deps`/`AppEnv` grow over Phases 2→6. Each task that extends them updates `tests/helpers.ts` in the same task, so the suite stays green. Never leave `Deps` referenced but unset in `injectDeps`.
-- **RPC inference:** never annotate a route module or `createApp` with an explicit `Hono`/return type — inference is what powers `hc<AppType>` (Task 8.1 fails loudly if a route breaks it).
-- **Library API drift:** `hono-rate-limiter` `Store`, `hono-openapi` `openAPISpecs`/`describeRoute`, `@hono/oauth-providers` `googleAuth`/`user-google`, and `hono-pino` (the `pinoLogger` option name and the `c.var.logger` wrapper type vs. `pino.Logger`) are the most version-sensitive surfaces. Verify each against the installed version when its task starts; the surrounding architecture does not change if signatures differ. If `hono-pino`'s context logger type doesn't match `pino.Logger`, set `AppEnv.Variables.logger` to the type it exports.
-- **DB-touching tests** (`*.drizzle.test.ts`) are `ignore`d without `DATABASE_URL`; all core logic is covered by in-memory tests that need no MySQL.
+- **Cross-phase type seam:** `Deps`/`AppEnv` grow over Phases 2→6. Each task
+  that extends them updates `tests/helpers.ts` in the same task, so the suite
+  stays green. Never leave `Deps` referenced but unset in `injectDeps`.
+- **RPC inference:** never annotate a route module or `createApp` with an
+  explicit `Hono`/return type — inference is what powers `hc<AppType>` (Task 8.1
+  fails loudly if a route breaks it).
+- **Library API drift:** `hono-rate-limiter` `Store`, `hono-openapi`
+  `openAPISpecs`/`describeRoute`, `@hono/oauth-providers`
+  `googleAuth`/`user-google`, and `hono-pino` (the `pinoLogger` option name and
+  the `c.var.logger` wrapper type vs. `pino.Logger`) are the most
+  version-sensitive surfaces. Verify each against the installed version when its
+  task starts; the surrounding architecture does not change if signatures
+  differ. If `hono-pino`'s context logger type doesn't match `pino.Logger`, set
+  `AppEnv.Variables.logger` to the type it exports.
+- **DB-touching tests** (`*.drizzle.test.ts`) are `ignore`d without
+  `DATABASE_URL`; all core logic is covered by in-memory tests that need no
+  MySQL.
