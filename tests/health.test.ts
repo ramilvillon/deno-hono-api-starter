@@ -1,8 +1,8 @@
 import { assertEquals } from '@std/assert'
-import { createApp } from '../src/app.ts'
+import { makeTestApp } from './helpers.ts'
 
 Deno.test('GET /health returns ok', async () => {
-  const app = createApp()
+  const app = makeTestApp()
   const res = await app.request('/health')
   assertEquals(res.status, 200)
   assertEquals(await res.json(), { status: 'ok' })
