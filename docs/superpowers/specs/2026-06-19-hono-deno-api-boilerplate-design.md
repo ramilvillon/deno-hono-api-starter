@@ -1,7 +1,7 @@
 # Design: TypeScript + Hono + Deno REST API Boilerplate
 
 **Date:** 2026-06-19
-**Status:** Approved (pending spec review)
+**Status:** Approved
 
 ## Goal
 
