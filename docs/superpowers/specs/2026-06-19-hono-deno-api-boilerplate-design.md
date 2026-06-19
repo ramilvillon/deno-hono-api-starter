@@ -36,6 +36,7 @@ client, and pre-commit security checks.
 
 | Concern        | Choice |
 |----------------|--------|
+| Version manager| asdf (`.tool-versions` pins deno, nodejs, gitleaks) |
 | Runtime        | Deno 2.7.13 (`deno.json` import map, tasks, fmt/lint, `--env-file`) |
 | Framework      | Hono |
 | Validation     | Zod + `@hono/zod-validator` |
@@ -228,20 +229,22 @@ IDs are app-generated UUIDs so the in-memory fakes and MySQL behave identically.
 
 - `package.json` with `"prepare": "husky"` and husky as a devDependency; one-time
   `npm install`. (Trade-off: pulls a minimal Node footprint into a Deno project,
-  used only for git-hook management.)
+  used only for git-hook management. Node itself is provisioned by asdf, so no
+  separate install step.)
 - `.husky/pre-commit` runs, in order — any failure blocks the commit:
   1. `gitleaks protect --staged --redact` (secret scan on staged changes)
   2. `deno fmt --check`
   3. `deno lint`
   4. `deno check`
-- `.gitleaks.toml` for config/allowlist. gitleaks installed out-of-band
-  (`brew install gitleaks`), documented in the README.
+- `.gitleaks.toml` for config/allowlist. gitleaks is managed by asdf (pinned in
+  `.tool-versions`), so `asdf install` provisions it alongside deno and node.
 - `deno task check:all` mirrors the same checks for CI use.
 
 ## Project Structure
 
 ```
 api/
+├── .tool-versions         # asdf: deno 2.7.13, nodejs <LTS>, gitleaks <ver>
 ├── deno.json              # tasks: dev, start, test, db:*, fmt, lint, check, check:all
 ├── deno.lock
 ├── package.json           # husky only
