@@ -34,6 +34,7 @@ client, and pre-commit security checks.
 | Database       | Drizzle ORM + **MySQL 8** (`drizzle-orm/mysql2`, `mysql2` driver) |
 | Migrations     | `drizzle-kit` (`dialect: "mysql"`) |
 | Auth           | OAuth2 access (JWT) + refresh tokens (opaque, stored & rotated) |
+| Logging        | `hono-pino` (structured JSON via pino) + request-scoped logger |
 | API docs       | `hono-openapi` (spec from Zod) + Scalar UI |
 | Tests          | `Deno.test` + `app.request()` with in-memory repo fakes |
 | RPC client     | Hono `hc<AppType>` |
@@ -73,7 +74,7 @@ Deno.serve({ port: config.port }, app.fetch)
 
 ### App assembly (`app.ts`)
 
-`createApp(deps)` composes global middleware (`requestId`, `logger`, `cors`,
+`createApp(deps)` composes global middleware (`requestId`, `pinoLogger`, `cors`,
 `secureHeaders`, `timeout`), mounts modules via `app.route('/users', ...)` and
 `app.route('/oauth', ...)`, registers `app.onError`, and serves OpenAPI + Scalar.
 It returns the app **without an annotated return type** so:
@@ -142,6 +143,15 @@ OAuth2 with access + refresh tokens.
   `app.onError` maps `AppError` / `HTTPException` to a consistent JSON shape;
   unknown errors become 500 without leaking internals.
 
+## Logging
+
+- `src/lib/logger.ts` — `createLogger(config)` returns a configured pino instance
+  (JSON in production; `pino-pretty` in development, level from env).
+- `hono-pino`'s `pinoLogger` middleware is mounted globally in `createApp`, after
+  `requestId`, so each request gets a child logger bound with the request id.
+  Handlers and services log via `c.var.logger` (typed in `types.ts`); the pino
+  instance can also be injected into services through `deps` for non-request logs.
+
 ## Database Schema (`src/db/schema.ts`, `drizzle-orm/mysql-core`)
 
 **users**
@@ -203,13 +213,14 @@ api/
 │   ├── app.ts             # createApp(deps); exports AppType
 │   ├── config.ts          # zod-validated env loader
 │   ├── client.ts          # hc<AppType> RPC client export
-│   ├── types.ts           # Hono Variables/Bindings (c.var.user)
+│   ├── types.ts           # Hono Variables/Bindings (c.var.user, c.var.logger)
 │   ├── db/
 │   │   ├── client.ts      # createDb(config)
 │   │   ├── schema.ts      # users + refresh_tokens (mysql-core)
 │   │   └── migrations/    # drizzle-kit output
 │   ├── lib/
 │   │   ├── errors.ts
+│   │   ├── logger.ts      # createLogger(config) -> pino
 │   │   ├── password.ts
 │   │   ├── jwt.ts
 │   │   └── tokens.ts
