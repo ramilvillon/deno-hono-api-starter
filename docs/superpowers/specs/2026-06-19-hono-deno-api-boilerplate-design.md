@@ -16,10 +16,18 @@ client, and pre-commit security checks.
 - **Composition over inheritance.** No base classes or inheritance hierarchies.
   Every unit is a factory function that receives its dependencies and returns a
   plain object (or a Hono sub-app). Wiring happens once at the entrypoint.
-- **Hono best practices.** No Rails-style controllers — route handlers stay
-  chained on their sub-app so type inference (and the `hc` RPC client) keeps
-  working. Compose apps with `app.route()`. Do not annotate factory return types
-  that feed the RPC client (leave them inferred).
+- **Hono best practices ("Building a larger application").** Each route group is
+  its own file as a **module-level, method-chained** `new Hono<{ Variables }>()`
+  that is `export`ed and mounted in the parent with `app.route('/path', module)`.
+  No Rails-style controllers and no wrapping route files in factory functions —
+  chaining is what preserves type inference and the `hc` RPC client. Do not
+  annotate the exported route/app types (leave them inferred).
+- **Dependencies via context, not constructors.** Because route modules are
+  dependency-free, services and repositories are supplied through a single
+  `injectDeps(deps)` middleware that sets them on `c.var` (typed in `Variables`).
+  Route handlers read `c.var.userService` etc. This keeps the Hono idiom intact
+  while remaining composition-based and testable (build the app with
+  in-memory-backed deps).
 - **Testable by construction.** Domain logic depends on repository *interfaces*,
   so tests inject in-memory fakes and run without a database.
 - **YAGNI.** Single Users domain; everything else is structure, not features.
@@ -45,16 +53,24 @@ client, and pre-commit security checks.
 ### Layered composition (dependencies flow inward)
 
 ```
-config → db → repository → service → routes → app → serve
+config → db → repositories → services ─┐ (assembled by createDeps)
+                                       └→ deps
+deps → injectDeps middleware → route modules → app → serve
 ```
 
-Each layer is a factory function:
+Repositories and services are factory functions; route modules follow Hono's
+"Building a larger application" idiom (module-level chained sub-apps):
 
 - **config** — `loadConfig(env): Config`, validated with Zod. Fails fast on bad env.
 - **db** — `createDb(config): Database` returns a Drizzle MySQL instance.
 - **repository** — interface + factory implementations (see below).
 - **service** — business logic factory, throws typed `AppError`.
-- **routes** — `create*Routes(deps): Hono` returns a method-chained sub-app.
+- **deps** — `createDeps(config, db): Deps` assembles repositories + services into
+  one plain object (the composition root's payload).
+- **injectDeps** — `injectDeps(deps)` middleware sets services on `c.var` so route
+  modules need no constructor arguments.
+- **route modules** — module-level **chained** `new Hono<{ Variables }>()`,
+  `export default`ed and mounted with `app.route()`. Handlers read `c.var.*`.
 - **app** — `createApp(deps): Hono` composes middleware + mounts route modules.
 - **serve** — `main.ts` loads config, builds deps, calls `createApp`, `Deno.serve`.
 
@@ -63,21 +79,41 @@ Each layer is a factory function:
 ```
 config = loadConfig(Deno.env)
 db     = createDb(config)
-deps   = {
-  config,
-  userRepo:  createDrizzleUserRepository(db),
-  tokenRepo: createDrizzleRefreshTokenRepository(db),
-}
+deps   = createDeps(config, db)   // builds repos + services
 app    = createApp(deps)
 Deno.serve({ port: config.port }, app.fetch)
 ```
 
+`createDeps` is the only place that picks the Drizzle implementations:
+
+```
+createDeps(config, db) => {
+  const userRepo  = createDrizzleUserRepository(db)
+  const tokenRepo = createDrizzleRefreshTokenRepository(db)
+  return {
+    config,
+    userService: createUserService({ repo: userRepo, config }),
+    authService: createAuthService({ userRepo, tokenRepo, config }),
+  }
+}
+```
+
 ### App assembly (`app.ts`)
 
-`createApp(deps)` composes global middleware (`requestId`, `pinoLogger`, `cors`,
-`secureHeaders`, `timeout`), mounts modules via `app.route('/users', ...)` and
-`app.route('/oauth', ...)`, registers `app.onError`, and serves OpenAPI + Scalar.
-It returns the app **without an annotated return type** so:
+`createApp(deps)` composes global middleware (`requestId`, `pinoLogger`,
+`injectDeps(deps)`, `cors`, `secureHeaders`, `timeout`), then mounts the
+module-level route apps:
+
+```
+const app = new Hono()
+  .use(...globalMiddleware)
+  .route('/users', usersRoutes)
+  .route('/oauth', authRoutes)
+```
+
+`injectDeps` runs before the mounted routes so `c.var.userService` /
+`c.var.authService` are populated. `app.onError` and the OpenAPI + Scalar routes
+are registered here too. The app is returned **without an annotated type** so:
 
 ```
 export type AppType = ReturnType<typeof createApp>
@@ -96,7 +132,9 @@ carries full route types for the RPC client.
   - `createInMemoryUserRepository()` — tests.
 - `users.service.ts` — `createUserService({ repo, config })`: register, fetch,
   update, delete; hashes passwords; throws typed `AppError`.
-- `users.routes.ts` — `createUsersRoutes(deps)` chained Hono sub-app.
+- `users.routes.ts` — module-level **chained** `new Hono<{ Variables }>()`,
+  `export default`ed. Handlers call `c.var.userService`; protected routes compose
+  `requireAuth` inline.
 
 ### Auth (`src/modules/auth/`)
 
@@ -112,8 +150,9 @@ OAuth2 with access + refresh tokens.
   - `token.repository.ts` — `RefreshTokenRepository` interface +
     `createDrizzleRefreshTokenRepository(db)` and
     `createInMemoryRefreshTokenRepository()`.
-  - `auth.service.ts` — `createAuthService({ userRepo, tokenRepo, jwt, config })`.
-  - `auth.routes.ts` — chained sub-app for the token + revoke endpoints.
+  - `auth.service.ts` — `createAuthService({ userRepo, tokenRepo, config })`.
+  - `auth.routes.ts` — module-level **chained** `new Hono<{ Variables }>()`,
+    `export default`ed, for the token + revoke endpoints (reads `c.var.authService`).
 
 ## Endpoints
 
@@ -132,9 +171,11 @@ OAuth2 with access + refresh tokens.
 
 ## Auth & Errors
 
-- `src/middleware/auth.ts` — `requireAuth(deps)` factory: verifies the access JWT,
-  loads the user via the repo, sets typed `c.var.user`. Composed only onto
-  protected routes.
+- `src/middleware/auth.ts` — `requireAuth` middleware: verifies the access JWT and
+  resolves the user via `c.var.authService` (supplied by `injectDeps`), then sets
+  typed `c.var.user`. Composed inline only onto protected routes.
+- `src/middleware/deps.ts` — `injectDeps(deps)` middleware factory that sets
+  `userService` / `authService` on `c.var`.
 - `src/lib/jwt.ts` — access-token sign/verify (wraps `hono/jwt`).
 - `src/lib/tokens.ts` — opaque refresh-token generate + SHA-256 hash.
 - `src/lib/password.ts` — bcrypt hash/verify (`npm:bcryptjs`).
@@ -175,7 +216,9 @@ IDs are app-generated UUIDs so the in-memory fakes and MySQL behave identically.
 
 - `Deno.test` + Hono `app.request()` for in-process integration tests.
 - Build the app with **in-memory repository fakes** — no DB required for unit and
-  route tests. This is the payoff of the repository interface.
+  route tests. This is the payoff of the repository interface + `injectDeps`:
+  tests assemble a `Deps` object backed by in-memory repos and pass it to
+  `createApp(deps)`, so the same route modules run unchanged against fakes.
 - `tests/helpers.ts` — builds a test app with in-memory deps and helpers to mint
   auth headers.
 - `tests/users.test.ts`, `tests/auth.test.ts` — register, login (password grant),
@@ -213,7 +256,8 @@ api/
 │   ├── app.ts             # createApp(deps); exports AppType
 │   ├── config.ts          # zod-validated env loader
 │   ├── client.ts          # hc<AppType> RPC client export
-│   ├── types.ts           # Hono Variables/Bindings (c.var.user, c.var.logger)
+│   ├── deps.ts            # Deps type + createDeps(config, db)
+│   ├── types.ts           # Hono Variables (user, logger, userService, authService)
 │   ├── db/
 │   │   ├── client.ts      # createDb(config)
 │   │   ├── schema.ts      # users + refresh_tokens (mysql-core)
@@ -225,7 +269,8 @@ api/
 │   │   ├── jwt.ts
 │   │   └── tokens.ts
 │   ├── middleware/
-│   │   └── auth.ts        # requireAuth(deps)
+│   │   ├── auth.ts        # requireAuth
+│   │   └── deps.ts        # injectDeps(deps)
 │   └── modules/
 │       ├── users/
 │       │   ├── users.schema.ts
