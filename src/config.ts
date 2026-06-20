@@ -12,6 +12,10 @@ const schema = z.object({
   GOOGLE_REDIRECT_URI: z.string().default(''),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
+  // Only trust X-Forwarded-For when the app sits behind a known reverse proxy.
+  TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) =>
+    v === 'true'
+  ),
   REDIS_URL: z.string().optional(),
 })
 
@@ -24,6 +28,7 @@ export type Config = {
   refreshTokenTtl: number
   google: { clientId: string; clientSecret: string; redirectUri: string }
   rateLimit: { windowMs: number; max: number }
+  trustProxy: boolean
   redisUrl?: string
 }
 
@@ -47,6 +52,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       redirectUri: e.GOOGLE_REDIRECT_URI,
     },
     rateLimit: { windowMs: e.RATE_LIMIT_WINDOW_MS, max: e.RATE_LIMIT_MAX },
+    trustProxy: e.TRUST_PROXY,
     redisUrl: e.REDIS_URL,
   }
 }
