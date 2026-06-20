@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
+import { describeRoute } from 'hono-openapi'
 import type { AppEnv } from '../../deps.ts'
 import { registerSchema, updateUserSchema } from './users.schema.ts'
 import { requireAuth } from '../../middleware/auth.ts'
@@ -9,10 +10,22 @@ import {
 } from '../../middleware/authorize.ts'
 
 const users = new Hono<AppEnv>()
-  .post('/', zValidator('json', registerSchema), async (c) => {
-    const user = await c.var.userService.register(c.req.valid('json'))
-    return c.json(user, 201)
-  })
+  .post(
+    '/',
+    describeRoute({
+      description: 'Register a new user',
+      responses: {
+        201: { description: 'Created' },
+        400: { description: 'Invalid input' },
+        409: { description: 'Email already registered' },
+      },
+    }),
+    zValidator('json', registerSchema),
+    async (c) => {
+      const user = await c.var.userService.register(c.req.valid('json'))
+      return c.json(user, 201)
+    },
+  )
   .get('/me', requireAuth, (c) => c.json(c.var.user, 200))
   .get('/', requireAuth, requirePermission('users:list'), async (c) => {
     return c.json(await c.var.userService.list(), 200)

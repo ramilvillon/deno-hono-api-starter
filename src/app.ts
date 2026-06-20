@@ -5,6 +5,8 @@ import { cors } from 'hono/cors'
 import { timeout } from 'hono/timeout'
 import { HTTPException } from 'hono/http-exception'
 import { pinoLogger } from 'hono-pino'
+import { openAPISpecs } from 'hono-openapi'
+import { apiReference } from '@scalar/hono-api-reference'
 import type { AppEnv, Deps } from './deps.ts'
 import { injectDeps } from './middleware/deps.ts'
 import { createLogger } from './lib/logger.ts'
@@ -44,6 +46,26 @@ export function createApp(deps: Deps) {
     .get('/health', (c) => c.json({ status: 'ok' }))
     .route('/users', users)
     .route('/oauth', auth)
+
+  // Registered after the routes so the spec can introspect every mounted path.
+  app.get(
+    '/openapi',
+    openAPISpecs(app, {
+      documentation: {
+        info: {
+          title: 'API Boilerplate',
+          version: '1.0.0',
+          description: 'Hono + Deno REST API boilerplate',
+        },
+      },
+    }),
+  )
+  // `url` is the documented runtime config, but @scalar/types@0.0.40 types the
+  // option as an over-narrow union that omits it at the top level; cast past it.
+  app.get(
+    '/docs',
+    apiReference({ url: '/openapi' } as Parameters<typeof apiReference>[0]),
+  )
 
   app.onError((err, c) => {
     if (err instanceof AppError) {
