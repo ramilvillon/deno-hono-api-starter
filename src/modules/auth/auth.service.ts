@@ -92,17 +92,19 @@ export function createAuthService(deps: {
         tokenHash: await hashToken(refresh),
         expiresAt: new Date(Date.now() + config.refreshTokenTtl * 1000),
       }
+      // Sign the access token before rotating so the only step after a
+      // successful (irreversible) rotation is returning the response.
+      const access_token = await signAccessToken({
+        sub: existing.userId,
+        secret: config.jwtSecret,
+        ttlSeconds: config.accessTokenTtl,
+      })
       // Atomic rotation; a false result means a concurrent rotation already
       // consumed this token (replay), so revoke the family and reject.
       if (!(await tokenRepo.rotate(existing.id, next))) {
         await tokenRepo.revokeAllForUser(existing.userId)
         throw AppError.unauthorized('refresh token reuse detected')
       }
-      const access_token = await signAccessToken({
-        sub: existing.userId,
-        secret: config.jwtSecret,
-        ttlSeconds: config.accessTokenTtl,
-      })
       return {
         access_token,
         refresh_token: refresh,

@@ -61,3 +61,23 @@ Deno.test('user can read self but not others; admin can read others', async () =
     200,
   )
 })
+
+Deno.test('PATCH /users/:id rejects an empty body, accepts a valid update', async () => {
+  const { app } = makeTestApp()
+  const id = await registerAndId(app, 'a@b.com')
+  const { Authorization } = await authHeader(app, 'a@b.com', 'pw123456')
+
+  const empty = await app.request(`/users/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({}),
+  })
+  assertEquals(empty.status, 400)
+
+  const ok = await app.request(`/users/${id}`, {
+    method: 'PATCH',
+    headers: { Authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'a2@b.com' }),
+  })
+  assertEquals(ok.status, 200)
+})

@@ -17,7 +17,7 @@ export const users = mysqlTable('users', {
 export const refreshTokens = mysqlTable('refresh_tokens', {
   id: varchar('id', { length: 36 }).primaryKey(),
   userId: varchar('user_id', { length: 36 }).notNull(),
-  tokenHash: varchar('token_hash', { length: 64 }).notNull(),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
   expiresAt: datetime('expires_at').notNull(),
   revokedAt: datetime('revoked_at'),
   replacedBy: varchar('replaced_by', { length: 36 }),

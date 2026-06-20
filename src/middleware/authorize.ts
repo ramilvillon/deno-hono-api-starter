@@ -5,7 +5,8 @@ import { AppError } from '../lib/errors.ts'
 export function requirePermission(permission: string) {
   return createMiddleware<AppEnv>(async (c, next) => {
     if (!c.var.user.permissions.includes(permission)) {
-      throw AppError.forbidden(`missing permission: ${permission}`)
+      // Generic message: don't disclose which permission the route requires.
+      throw AppError.forbidden('forbidden')
     }
     await next()
   })
