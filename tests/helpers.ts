@@ -6,6 +6,7 @@ import { createInMemoryRefreshTokenRepository } from '../src/modules/auth/token.
 import { createUserService } from '../src/modules/users/users.service.ts'
 import { createAuthService } from '../src/modules/auth/auth.service.ts'
 import { ROLE_GRANTS } from '../src/db/rbac-constants.ts'
+import { createMemoryRateLimitStore } from '../src/lib/rate-limit-store.ts'
 import type { SocialAccountRepository } from '../src/modules/auth/social.repository.ts'
 
 const testEnv = {
@@ -37,6 +38,7 @@ export function makeTestDeps(): TestContext {
   }
   const deps: Deps = {
     config,
+    rateStore: createMemoryRateLimitStore(),
     userService: createUserService({ repo: userRepo }),
     authService: createAuthService({ userRepo, tokenRepo, socialRepo, config }),
   }

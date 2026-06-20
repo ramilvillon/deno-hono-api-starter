@@ -9,11 +9,13 @@ import type { AppEnv, Deps } from './deps.ts'
 import { injectDeps } from './middleware/deps.ts'
 import { createLogger } from './lib/logger.ts'
 import { AppError } from './lib/errors.ts'
+import { makeRateLimiter } from './middleware/rate-limit.ts'
 import users from './modules/users/users.routes.ts'
 import auth from './modules/auth/auth.routes.ts'
 
 export function createApp(deps: Deps) {
   const logger = createLogger(deps.config)
+  const { windowMs, max } = deps.config.rateLimit
   const app = new Hono<AppEnv>()
     .use('*', requestId())
     .use('*', pinoLogger({ pino: logger }))
@@ -21,6 +23,24 @@ export function createApp(deps: Deps) {
     .use('*', cors())
     .use('*', timeout(15000))
     .use('*', injectDeps(deps))
+    // Lenient global limiter, then a stricter limiter throttling credential
+    // and social-login attempts.
+    .use(
+      '*',
+      makeRateLimiter(deps.rateStore, {
+        windowMs,
+        limit: max,
+        prefix: 'global',
+      }),
+    )
+    .use(
+      '/oauth/token',
+      makeRateLimiter(deps.rateStore, { windowMs, limit: 10, prefix: 'login' }),
+    )
+    .use(
+      '/oauth/google',
+      makeRateLimiter(deps.rateStore, { windowMs, limit: 10, prefix: 'login' }),
+    )
     .get('/health', (c) => c.json({ status: 'ok' }))
     .route('/users', users)
     .route('/oauth', auth)
