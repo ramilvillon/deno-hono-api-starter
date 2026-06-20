@@ -1,5 +1,5 @@
 {
-  "name": "api-boilerplate-hooks",
+  "name": "deno-hono-api-starter",
   "private": true,
   "scripts": {
     "prepare": "husky"

@@ -1,6 +1,6 @@
-# Hono + Deno API Boilerplate
+# deno-hono-api-starter
 
-A production-shaped REST API boilerplate built with Deno, Hono, and TypeScript.
+A production-shaped REST API starter built with Deno, Hono, and TypeScript.
 Factory-function composition (no inheritance), dependencies flow inward
 (`config → db → repositories → services → deps`), and route modules stay
 dependency-free so the `hc` RPC client keeps full type inference.
