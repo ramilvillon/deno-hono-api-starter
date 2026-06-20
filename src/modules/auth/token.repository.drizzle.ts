@@ -1,7 +1,7 @@
-import { and, eq, gt, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { Database } from '../../db/client.ts'
-import { refreshTokens } from '../../db/schema.ts'
 import type { RefreshTokenRepository } from './token.repository.ts'
+import { refreshTokens } from '../../db/schema.ts'
 
 export function createDrizzleRefreshTokenRepository(
   db: Database,
@@ -10,21 +10,22 @@ export function createDrizzleRefreshTokenRepository(
     async create(token) {
       await db.insert(refreshTokens).values({ ...token, createdAt: new Date() })
     },
-    async findValidByHash(tokenHash) {
+    async findByHash(tokenHash) {
       const row = await db.query.refreshTokens.findFirst({
-        where: and(
-          eq(refreshTokens.tokenHash, tokenHash),
-          isNull(refreshTokens.revokedAt),
-          gt(refreshTokens.expiresAt, new Date()),
-        ),
+        where: eq(refreshTokens.tokenHash, tokenHash),
       })
       return row ?? null
     },
     async rotate(oldId, next) {
-      await db.update(refreshTokens)
+      // Conditional update: only the writer that flips an active token wins.
+      const [res] = await db.update(refreshTokens)
         .set({ revokedAt: new Date(), replacedBy: next.id })
-        .where(eq(refreshTokens.id, oldId))
+        .where(
+          and(eq(refreshTokens.id, oldId), isNull(refreshTokens.revokedAt)),
+        )
+      if ((res as { affectedRows: number }).affectedRows !== 1) return false
       await db.insert(refreshTokens).values({ ...next, createdAt: new Date() })
+      return true
     },
     async revoke(id) {
       await db.update(refreshTokens).set({ revokedAt: new Date() }).where(

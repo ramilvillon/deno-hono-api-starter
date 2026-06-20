@@ -5,7 +5,7 @@ import type {
   RefreshTokenRepository,
 } from './token.repository.ts'
 import type { SocialAccountRepository } from './social.repository.ts'
-import { verifyPassword } from '../../lib/password.ts'
+import { hashPassword, verifyPassword } from '../../lib/password.ts'
 import { signAccessToken } from '../../lib/jwt.ts'
 import { generateRefreshToken, hashToken } from '../../lib/tokens.ts'
 import { AppError } from '../../lib/errors.ts'
@@ -26,6 +26,16 @@ export function createAuthService(deps: {
   config: Config
 }) {
   const { userRepo, tokenRepo, config } = deps
+
+  // Computed once and reused so failed logins for missing/passwordless users
+  // still pay the bcrypt cost, equalizing response timing (no user enumeration).
+  let dummyHash: string | null = null
+  async function getDummyHash(): Promise<string> {
+    if (!dummyHash) {
+      dummyHash = await hashPassword('invalid-placeholder-password')
+    }
+    return dummyHash
+  }
 
   async function issueTokens(userId: string): Promise<TokenPair> {
     const access_token = await signAccessToken({
@@ -53,18 +63,28 @@ export function createAuthService(deps: {
     issueTokens,
     async passwordGrant(email: string, password: string): Promise<TokenPair> {
       const user = await userRepo.findByEmail(email)
-      if (!user || !user.passwordHash) {
-        throw AppError.unauthorized('invalid credentials')
-      }
-      if (!(await verifyPassword(password, user.passwordHash))) {
+      // Always run a bcrypt comparison to keep timing constant across the
+      // missing-user, passwordless-user, and wrong-password branches.
+      const hash = user?.passwordHash ?? await getDummyHash()
+      const passwordOk = await verifyPassword(password, hash)
+      if (!user || !user.passwordHash || !passwordOk) {
         throw AppError.unauthorized('invalid credentials')
       }
       return issueTokens(user.id)
     },
     async refreshGrant(refreshToken: string): Promise<TokenPair> {
       const hash = await hashToken(refreshToken)
-      const existing = await tokenRepo.findValidByHash(hash)
+      const existing = await tokenRepo.findByHash(hash)
       if (!existing) throw AppError.unauthorized('invalid refresh token')
+
+      const isExpired = existing.expiresAt.getTime() <= Date.now()
+      // Reuse of an already-revoked token signals theft: revoke the whole family.
+      if (existing.revokedAt) {
+        await tokenRepo.revokeAllForUser(existing.userId)
+        throw AppError.unauthorized('refresh token reuse detected')
+      }
+      if (isExpired) throw AppError.unauthorized('invalid refresh token')
+
       const refresh = generateRefreshToken()
       const next: NewRefreshToken = {
         id: crypto.randomUUID(),
@@ -72,7 +92,12 @@ export function createAuthService(deps: {
         tokenHash: await hashToken(refresh),
         expiresAt: new Date(Date.now() + config.refreshTokenTtl * 1000),
       }
-      await tokenRepo.rotate(existing.id, next)
+      // Atomic rotation; a false result means a concurrent rotation already
+      // consumed this token (replay), so revoke the family and reject.
+      if (!(await tokenRepo.rotate(existing.id, next))) {
+        await tokenRepo.revokeAllForUser(existing.userId)
+        throw AppError.unauthorized('refresh token reuse detected')
+      }
       const access_token = await signAccessToken({
         sub: existing.userId,
         secret: config.jwtSecret,
@@ -86,19 +111,27 @@ export function createAuthService(deps: {
       }
     },
     async revoke(refreshToken: string): Promise<void> {
-      const existing = await tokenRepo.findValidByHash(
-        await hashToken(refreshToken),
-      )
-      if (existing) await tokenRepo.revoke(existing.id)
+      const existing = await tokenRepo.findByHash(await hashToken(refreshToken))
+      if (existing && !existing.revokedAt) await tokenRepo.revoke(existing.id)
     },
     async loginWithGoogle(
-      profile: { providerAccountId: string; email: string },
+      profile: {
+        providerAccountId: string
+        email: string
+        emailVerified: boolean
+      },
     ): Promise<TokenPair> {
       const existing = await deps.socialRepo.findByProviderAccount(
         'google',
         profile.providerAccountId,
       )
       if (existing) return issueTokens(existing.userId)
+
+      // Never create-or-link an account from an unverified provider email:
+      // that would let an attacker take over an account by claiming its email.
+      if (!profile.emailVerified) {
+        throw AppError.forbidden('google account email is not verified')
+      }
 
       let user = await userRepo.findByEmail(profile.email)
       if (!user) {

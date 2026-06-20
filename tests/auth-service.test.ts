@@ -48,9 +48,24 @@ Deno.test('refresh grant rotates the refresh token', async () => {
   const first = await authService.passwordGrant('a@b.com', 'pw123456')
   const second = await authService.refreshGrant(first.refresh_token)
   assert(second.refresh_token !== first.refresh_token)
+})
+
+Deno.test('reusing a rotated refresh token revokes the whole family', async () => {
+  const { authService, userService } = setup()
+  await userService.register({ email: 'a@b.com', password: 'pw123456' })
+  const first = await authService.passwordGrant('a@b.com', 'pw123456')
+  const second = await authService.refreshGrant(first.refresh_token)
+
+  // Replaying the old (rotated) token is detected as theft.
   await assertRejects(
     () => authService.refreshGrant(first.refresh_token),
     Error,
-    'invalid refresh token',
+    'reuse detected',
+  )
+  // ...and the family is revoked, so the previously-valid token is dead too.
+  await assertRejects(
+    () => authService.refreshGrant(second.refresh_token),
+    Error,
+    'reuse detected',
   )
 })

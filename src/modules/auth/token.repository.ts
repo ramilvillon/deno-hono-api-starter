@@ -14,37 +14,36 @@ export type NewRefreshToken = Pick<
 
 export type RefreshTokenRepository = {
   create(token: NewRefreshToken): Promise<void>
-  findValidByHash(tokenHash: string): Promise<RefreshTokenRecord | null>
-  rotate(oldId: string, next: NewRefreshToken): Promise<void>
+  // Returns the row regardless of revoked/expired state, so callers can
+  // distinguish "unknown token" from "known-but-revoked" (reuse detection).
+  findByHash(tokenHash: string): Promise<RefreshTokenRecord | null>
+  // Atomically revokes `oldId` only if it is still active, then inserts `next`.
+  // Returns false if `oldId` was already revoked (lost the race / replay).
+  rotate(oldId: string, next: NewRefreshToken): Promise<boolean>
   revoke(id: string): Promise<void>
   revokeAllForUser(userId: string): Promise<void>
 }
 
 export function createInMemoryRefreshTokenRepository(): RefreshTokenRepository {
   const byId = new Map<string, RefreshTokenRecord>()
-  const isValid = (t: RefreshTokenRecord) =>
-    !t.revokedAt && t.expiresAt.getTime() > Date.now()
 
   return {
     create(token) {
       byId.set(token.id, { ...token, revokedAt: null, replacedBy: null })
       return Promise.resolve()
     },
-    findValidByHash(tokenHash) {
+    findByHash(tokenHash) {
       for (const t of byId.values()) {
-        if (t.tokenHash === tokenHash && isValid(t)) {
-          return Promise.resolve({ ...t })
-        }
+        if (t.tokenHash === tokenHash) return Promise.resolve({ ...t })
       }
       return Promise.resolve(null)
     },
     rotate(oldId, next) {
       const old = byId.get(oldId)
-      if (old) {
-        byId.set(oldId, { ...old, revokedAt: new Date(), replacedBy: next.id })
-      }
+      if (!old || old.revokedAt) return Promise.resolve(false)
+      byId.set(oldId, { ...old, revokedAt: new Date(), replacedBy: next.id })
       byId.set(next.id, { ...next, revokedAt: null, replacedBy: null })
-      return Promise.resolve()
+      return Promise.resolve(true)
     },
     revoke(id) {
       const t = byId.get(id)
