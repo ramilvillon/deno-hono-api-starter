@@ -2,7 +2,7 @@ import { assertEquals } from '@std/assert'
 import { makeTestApp } from './helpers.ts'
 
 Deno.test('POST /users registers a user', async () => {
-  const app = makeTestApp()
+  const { app } = makeTestApp()
   const res = await app.request('/users', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -14,7 +14,7 @@ Deno.test('POST /users registers a user', async () => {
 })
 
 Deno.test('POST /users validation error -> 400', async () => {
-  const app = makeTestApp()
+  const { app } = makeTestApp()
   const res = await app.request('/users', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

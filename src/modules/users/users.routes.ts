@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import type { AppEnv } from '../../deps.ts'
 import { registerSchema } from './users.schema.ts'
+import { requireAuth } from '../../middleware/auth.ts'
 
 const users = new Hono<AppEnv>()
   .post('/', zValidator('json', registerSchema), async (c) => {
@@ -9,5 +10,6 @@ const users = new Hono<AppEnv>()
     const user = await c.var.userService.register(input)
     return c.json(user, 201)
   })
+  .get('/me', requireAuth, (c) => c.json(c.var.user, 200))
 
 export default users

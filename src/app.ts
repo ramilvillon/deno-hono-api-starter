@@ -10,6 +10,7 @@ import { injectDeps } from './middleware/deps.ts'
 import { createLogger } from './lib/logger.ts'
 import { AppError } from './lib/errors.ts'
 import users from './modules/users/users.routes.ts'
+import auth from './modules/auth/auth.routes.ts'
 
 export function createApp(deps: Deps) {
   const logger = createLogger(deps.config)
@@ -22,6 +23,7 @@ export function createApp(deps: Deps) {
     .use('*', injectDeps(deps))
     .get('/health', (c) => c.json({ status: 'ok' }))
     .route('/users', users)
+    .route('/oauth', auth)
 
   app.onError((err, c) => {
     if (err instanceof AppError) {
