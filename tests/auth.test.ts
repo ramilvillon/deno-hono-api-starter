@@ -66,9 +66,15 @@ Deno.test('/users/me rejects tampered, wrong-secret, and expired tokens', async 
   await register(app)
   const { Authorization } = await authHeader(app, 'a@b.com', 'pw123456')
 
-  // tampered: flip the last char of the signature
+  // tampered: flip the first char of the signature. The last base64url char of
+  // a 32-byte HMAC signature only carries 4 significant bits, so flipping it can
+  // decode to the same bytes (a no-op tamper); the first char always changes the
+  // decoded signature, guaranteeing a genuine mismatch.
   const valid = Authorization.slice('Bearer '.length)
-  const tampered = valid.slice(0, -1) + (valid.at(-1) === 'a' ? 'b' : 'a')
+  const lastDot = valid.lastIndexOf('.')
+  const sig = valid.slice(lastDot + 1)
+  const tampered = valid.slice(0, lastDot + 1) +
+    (sig[0] === 'A' ? 'B' : 'A') + sig.slice(1)
   assertEquals(
     (await app.request('/users/me', {
       headers: { Authorization: `Bearer ${tampered}` },
