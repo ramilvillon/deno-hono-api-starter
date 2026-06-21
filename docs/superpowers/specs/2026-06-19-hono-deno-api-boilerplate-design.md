@@ -1,16 +1,15 @@
 # Design: TypeScript + Hono + Deno REST API Boilerplate
 
-**Date:** 2026-06-19
-**Status:** Approved
+**Date:** 2026-06-19 **Status:** Approved
 
 ## Goal
 
 A production-shaped REST API boilerplate built on Deno + Hono + TypeScript that
-demonstrates clean, testable structure using **composition over inheritance**. It
-ships a Users domain with OAuth2 authentication (access + refresh tokens), Google
-social login, role-based access control with ownership checks, configurable rate
-limiting, MySQL persistence via Drizzle, generated OpenAPI docs, an end-to-end
-type-safe RPC client, and pre-commit security checks.
+demonstrates clean, testable structure using **composition over inheritance**.
+It ships a Users domain with OAuth2 authentication (access + refresh tokens),
+Google social login, role-based access control with ownership checks,
+configurable rate limiting, MySQL persistence via Drizzle, generated OpenAPI
+docs, an end-to-end type-safe RPC client, and pre-commit security checks.
 
 ## Guiding Principles
 
@@ -19,41 +18,43 @@ type-safe RPC client, and pre-commit security checks.
   plain object (or a Hono sub-app). Wiring happens once at the entrypoint.
 - **Hono best practices ("Building a larger application").** Each route group is
   its own file as a **module-level, method-chained** `new Hono<{ Variables }>()`
-  that is `export`ed and mounted in the parent with `app.route('/path', module)`.
-  No Rails-style controllers and no wrapping route files in factory functions —
-  chaining is what preserves type inference and the `hc` RPC client. Do not
-  annotate the exported route/app types (leave them inferred).
+  that is `export`ed and mounted in the parent with
+  `app.route('/path', module)`. No Rails-style controllers and no wrapping route
+  files in factory functions — chaining is what preserves type inference and the
+  `hc` RPC client. Do not annotate the exported route/app types (leave them
+  inferred).
 - **Dependencies via context, not constructors.** Because route modules are
   dependency-free, services and repositories are supplied through a single
-  `injectDeps(deps)` middleware that sets them on `c.var` (typed in `Variables`).
-  Route handlers read `c.var.userService` etc. This keeps the Hono idiom intact
-  while remaining composition-based and testable (build the app with
-  in-memory-backed deps).
-- **Testable by construction.** Domain logic depends on repository *interfaces*,
+  `injectDeps(deps)` middleware that sets them on `c.var` (typed in
+  `Variables`). Route handlers read `c.var.userService` etc. This keeps the Hono
+  idiom intact while remaining composition-based and testable (build the app
+  with in-memory-backed deps).
+- **Testable by construction.** Domain logic depends on repository _interfaces_,
   so tests inject in-memory fakes and run without a database.
 - **YAGNI.** A single Users domain carries auth, RBAC, social login, and rate
-  limiting; these cross-cutting concerns are the boilerplate's reason to exist, so
-  they ship, but no second business domain is added just to demonstrate structure.
+  limiting; these cross-cutting concerns are the boilerplate's reason to exist,
+  so they ship, but no second business domain is added just to demonstrate
+  structure.
 
 ## Stack
 
-| Concern        | Choice |
-|----------------|--------|
-| Version manager| asdf (`.tool-versions` pins deno, nodejs, gitleaks) |
-| Runtime        | Deno 2.7.13 (`deno.json` import map, tasks, fmt/lint, `--env-file`) |
-| Framework      | Hono |
-| Validation     | Zod + `@hono/zod-validator` |
-| Database       | Drizzle ORM + **MySQL 8** (`drizzle-orm/mysql2`, `mysql2` driver) |
-| Migrations     | `drizzle-kit` (`dialect: "mysql"`) |
-| Auth           | OAuth2 access (JWT) + refresh tokens (opaque, stored & rotated) |
-| Social login   | `@hono/oauth-providers` (Google authorization-code flow) |
-| Authorization  | RBAC: roles + permissions + ownership (`requirePermission`) |
-| Rate limiting  | `hono-rate-limiter` behind a pluggable store (memory default, Redis optional) |
-| Logging        | `hono-pino` (structured JSON via pino) + request-scoped logger |
-| API docs       | `hono-openapi` (spec from Zod) + Scalar UI |
-| Tests          | `Deno.test` + `app.request()` with in-memory repo fakes |
-| RPC client     | Hono `hc<AppType>` |
-| Git hooks      | husky v9 + gitleaks + deno fmt/lint/check |
+| Concern         | Choice                                                                        |
+| --------------- | ----------------------------------------------------------------------------- |
+| Version manager | asdf (`.tool-versions` pins deno, nodejs, gitleaks)                           |
+| Runtime         | Deno 2.7.13 (`deno.json` import map, tasks, fmt/lint, `--env-file`)           |
+| Framework       | Hono                                                                          |
+| Validation      | Zod + `@hono/zod-validator`                                                   |
+| Database        | Drizzle ORM + **MySQL 8** (`drizzle-orm/mysql2`, `mysql2` driver)             |
+| Migrations      | `drizzle-kit` (`dialect: "mysql"`)                                            |
+| Auth            | OAuth2 access (JWT) + refresh tokens (opaque, stored & rotated)               |
+| Social login    | `@hono/oauth-providers` (Google authorization-code flow)                      |
+| Authorization   | RBAC: roles + permissions + ownership (`requirePermission`)                   |
+| Rate limiting   | `hono-rate-limiter` behind a pluggable store (memory default, Redis optional) |
+| Logging         | `hono-pino` (structured JSON via pino) + request-scoped logger                |
+| API docs        | `hono-openapi` (spec from Zod) + Scalar UI                                    |
+| Tests           | `Deno.test` + `app.request()` with in-memory repo fakes                       |
+| RPC client      | Hono `hc<AppType>`                                                            |
+| Git hooks       | husky v9 + gitleaks + deno fmt/lint/check                                     |
 
 ## Architecture
 
@@ -68,18 +69,20 @@ deps → injectDeps middleware → route modules → app → serve
 Repositories and services are factory functions; route modules follow Hono's
 "Building a larger application" idiom (module-level chained sub-apps):
 
-- **config** — `loadConfig(env): Config`, validated with Zod. Fails fast on bad env.
+- **config** — `loadConfig(env): Config`, validated with Zod. Fails fast on bad
+  env.
 - **db** — `createDb(config): Database` returns a Drizzle MySQL instance.
 - **repository** — interface + factory implementations (see below).
 - **service** — business logic factory, throws typed `AppError`.
-- **deps** — `createDeps(config, db): Deps` assembles repositories + services into
-  one plain object (the composition root's payload).
-- **injectDeps** — `injectDeps(deps)` middleware sets services on `c.var` so route
-  modules need no constructor arguments.
+- **deps** — `createDeps(config, db): Deps` assembles repositories + services
+  into one plain object (the composition root's payload).
+- **injectDeps** — `injectDeps(deps)` middleware sets services on `c.var` so
+  route modules need no constructor arguments.
 - **route modules** — module-level **chained** `new Hono<{ Variables }>()`,
   `export default`ed and mounted with `app.route()`. Handlers read `c.var.*`.
 - **app** — `createApp(deps): Hono` composes middleware + mounts route modules.
-- **serve** — `main.ts` loads config, builds deps, calls `createApp`, `Deno.serve`.
+- **serve** — `main.ts` loads config, builds deps, calls `createApp`,
+  `Deno.serve`.
 
 ### Dependency wiring (`main.ts`)
 
@@ -146,8 +149,8 @@ carries full route types for the RPC client.
 - `users.service.ts` — `createUserService({ repo, config })`: register, fetch,
   update, delete; hashes passwords; throws typed `AppError`.
 - `users.routes.ts` — module-level **chained** `new Hono<{ Variables }>()`,
-  `export default`ed. Handlers call `c.var.userService`; protected routes compose
-  `requireAuth` inline.
+  `export default`ed. Handlers call `c.var.userService`; protected routes
+  compose `requireAuth` inline.
 
 ### Auth (`src/modules/auth/`)
 
@@ -158,29 +161,32 @@ OAuth2 with access + refresh tokens.
   is stored in `refresh_tokens`. **Rotated on every use** (old revoked, new
   issued), enabling server-side revocation/logout.
 - Files:
-  - `auth.schema.ts` — discriminated Zod schema on `grant_type`
-    (`password` | `refresh_token`) + token response DTO.
+  - `auth.schema.ts` — discriminated Zod schema on `grant_type` (`password` |
+    `refresh_token`) + token response DTO.
   - `token.repository.ts` — `RefreshTokenRepository` interface +
     `createDrizzleRefreshTokenRepository(db)` and
     `createInMemoryRefreshTokenRepository()`.
   - `social.repository.ts` — `SocialAccountRepository` interface +
-    `createDrizzleSocialAccountRepository(db)` / `createInMemorySocialAccountRepository()`.
-  - `auth.service.ts` — `createAuthService({ userRepo, tokenRepo, socialRepo, config })`;
-    also exposes `loginWithGoogle(profile)` (find-or-create user, link social
+    `createDrizzleSocialAccountRepository(db)` /
+    `createInMemorySocialAccountRepository()`.
+  - `auth.service.ts` —
+    `createAuthService({ userRepo, tokenRepo, socialRepo, config })`; also
+    exposes `loginWithGoogle(profile)` (find-or-create user, link social
     account, issue token pair).
   - `auth.routes.ts` — module-level **chained** `new Hono<{ Variables }>()`,
     `export default`ed, for the token + revoke + Google login endpoints (reads
     `c.var.authService`).
 
 **Google social login** uses `@hono/oauth-providers`' Google middleware
-(authorization-code flow). `GET /oauth/google` redirects to Google; the middleware
-handles `GET /oauth/google/callback`, exposing the verified Google profile. The
-handler calls `authService.loginWithGoogle(profile)` to find-or-create the user by
-email, link the identity in `social_accounts` (unique on `provider` +
-`provider_account_id`), and return **your own** `{ access_token, refresh_token }`
-pair (JSON; an optional redirect-with-tokens variant is noted in the README).
-Social-only users have a null `password_hash`. Requires `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI` in config.
+(authorization-code flow). `GET /oauth/google` redirects to Google; the
+middleware handles `GET /oauth/google/callback`, exposing the verified Google
+profile. The handler calls `authService.loginWithGoogle(profile)` to
+find-or-create the user by email, link the identity in `social_accounts` (unique
+on `provider` + `provider_account_id`), and return **your own**
+`{ access_token, refresh_token }` pair (JSON; an optional redirect-with-tokens
+variant is noted in the README). Social-only users have a null `password_hash`.
+Requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`
+in config.
 
 ### Authorization / RBAC (`src/middleware/authorize.ts`)
 
@@ -189,10 +195,10 @@ Social-only users have a null `password_hash`. Requires `GOOGLE_CLIENT_ID`,
   `c.var.user`.
 - `requirePermission('users:list')` — middleware asserting the permission is
   present; otherwise 403.
-- `requireSelfOrPermission(paramName, permission)` — passes when the authenticated
-  user owns the resource (`c.req.param(paramName) === user.id`) **or** holds the
-  override permission (e.g. `users:update:any`). This is the "ownership OR
-  permission" rule.
+- `requireSelfOrPermission(paramName, permission)` — passes when the
+  authenticated user owns the resource (`c.req.param(paramName) === user.id`)
+  **or** holds the override permission (e.g. `users:update:any`). This is the
+  "ownership OR permission" rule.
 - Permission keys: `users:list`, `users:read:any`, `users:update:any`,
   `users:delete:any`. Seeded `user` role gets none of the `:any` keys; seeded
   `admin` role gets all.
@@ -202,39 +208,40 @@ Social-only users have a null `password_hash`. Requires `GOOGLE_CLIENT_ID`,
 - `rateLimiter(store, opts)` wraps `hono-rate-limiter` with a `RateLimitStore`
   interface. Two impls: `createMemoryRateLimitStore()` (default) and
   `createRedisRateLimitStore(redisUrl)` (optional, selected by `REDIS_URL`).
-- Keyed by client IP, and by user id when authenticated. A lenient global limiter
-  is applied in `createApp`; a stricter limiter guards `/oauth/token` and
-  `/oauth/google` to throttle credential/login attempts. Window + max come from
-  config (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`).
+- Keyed by client IP, and by user id when authenticated. A lenient global
+  limiter is applied in `createApp`; a stricter limiter guards `/oauth/token`
+  and `/oauth/google` to throttle credential/login attempts. Window + max come
+  from config (`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`).
 
 ## Endpoints
 
-| Method | Path                    | Auth | Authorization | Purpose |
-|--------|-------------------------|------|---------------|---------|
-| POST   | `/users`                | —    | —             | Register a new user |
-| POST   | `/oauth/token`          | —    | —             | `grant_type=password` → login; `grant_type=refresh_token` → rotate. Returns `{ access_token, refresh_token, token_type, expires_in }` in JSON body |
-| POST   | `/oauth/revoke`         | —    | —             | Revoke a refresh token (logout) |
-| GET    | `/oauth/google`         | —    | —             | Begin Google authorization-code flow |
-| GET    | `/oauth/google/callback`| —    | —             | Google callback → link account, issue token pair |
-| GET    | `/users/me`             | yes  | —             | Current user (with roles/permissions) |
-| GET    | `/users`                | yes  | `users:list`  | List users (admin) |
-| GET    | `/users/:id`            | yes  | self or `users:read:any`   | Fetch user |
-| PATCH  | `/users/:id`            | yes  | self or `users:update:any` | Update user |
-| DELETE | `/users/:id`            | yes  | self or `users:delete:any` | Delete user |
-| GET    | `/health`               | —    | —             | Liveness |
-| GET    | `/openapi`              | —    | —             | OpenAPI JSON spec |
-| GET    | `/docs`                 | —    | —             | Scalar API reference UI |
+| Method | Path                     | Auth | Authorization              | Purpose                                                                                                                                            |
+| ------ | ------------------------ | ---- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/users`                 | —    | —                          | Register a new user                                                                                                                                |
+| POST   | `/oauth/token`           | —    | —                          | `grant_type=password` → login; `grant_type=refresh_token` → rotate. Returns `{ access_token, refresh_token, token_type, expires_in }` in JSON body |
+| POST   | `/oauth/revoke`          | —    | —                          | Revoke a refresh token (logout)                                                                                                                    |
+| GET    | `/oauth/google`          | —    | —                          | Begin Google authorization-code flow                                                                                                               |
+| GET    | `/oauth/google/callback` | —    | —                          | Google callback → link account, issue token pair                                                                                                   |
+| GET    | `/users/me`              | yes  | —                          | Current user (with roles/permissions)                                                                                                              |
+| GET    | `/users`                 | yes  | `users:list`               | List users (admin)                                                                                                                                 |
+| GET    | `/users/:id`             | yes  | self or `users:read:any`   | Fetch user                                                                                                                                         |
+| PATCH  | `/users/:id`             | yes  | self or `users:update:any` | Update user                                                                                                                                        |
+| DELETE | `/users/:id`             | yes  | self or `users:delete:any` | Delete user                                                                                                                                        |
+| GET    | `/health`                | —    | —                          | Liveness                                                                                                                                           |
+| GET    | `/openapi`               | —    | —                          | OpenAPI JSON spec                                                                                                                                  |
+| GET    | `/docs`                  | —    | —                          | Scalar API reference UI                                                                                                                            |
 
 ## Auth & Errors
 
-- `src/middleware/auth.ts` — `requireAuth` middleware: verifies the access JWT and
-  resolves the user via `c.var.authService` (supplied by `injectDeps`), then sets
-  typed `c.var.user`. Composed inline only onto protected routes.
+- `src/middleware/auth.ts` — `requireAuth` middleware: verifies the access JWT
+  and resolves the user via `c.var.authService` (supplied by `injectDeps`), then
+  sets typed `c.var.user`. Composed inline only onto protected routes.
 - `src/middleware/deps.ts` — `injectDeps(deps)` middleware factory that sets
   services + `rateStore` on `c.var`.
-- `src/middleware/authorize.ts` — `requirePermission` / `requireSelfOrPermission`
-  (see Authorization / RBAC).
-- `src/middleware/rate-limit.ts` — `rateLimiter(store, opts)` (see Rate limiting).
+- `src/middleware/authorize.ts` — `requirePermission` /
+  `requireSelfOrPermission` (see Authorization / RBAC).
+- `src/middleware/rate-limit.ts` — `rateLimiter(store, opts)` (see Rate
+  limiting).
 - `src/lib/jwt.ts` — access-token sign/verify (wraps `hono/jwt`).
 - `src/lib/tokens.ts` — opaque refresh-token generate + SHA-256 hash.
 - `src/lib/password.ts` — bcrypt hash/verify (`npm:bcryptjs`).
@@ -245,22 +252,25 @@ Social-only users have a null `password_hash`. Requires `GOOGLE_CLIENT_ID`,
 
 ## Logging
 
-- `src/lib/logger.ts` — `createLogger(config)` returns a configured pino instance
-  (JSON in production; `pino-pretty` in development, level from env).
-- `hono-pino`'s `pinoLogger` middleware is mounted globally in `createApp`, after
-  `requestId`, so each request gets a child logger bound with the request id.
-  Handlers and services log via `c.var.logger` (typed in `types.ts`); the pino
-  instance can also be injected into services through `deps` for non-request logs.
+- `src/lib/logger.ts` — `createLogger(config)` returns a configured pino
+  instance (JSON in production; `pino-pretty` in development, level from env).
+- `hono-pino`'s `pinoLogger` middleware is mounted globally in `createApp`,
+  after `requestId`, so each request gets a child logger bound with the request
+  id. Handlers and services log via `c.var.logger` (typed in `types.ts`); the
+  pino instance can also be injected into services through `deps` for
+  non-request logs.
 
 ## Database Schema (`src/db/schema.ts`, `drizzle-orm/mysql-core`)
 
 **users**
+
 - `id` varchar(36) PK — app-generated `crypto.randomUUID()`
 - `email` varchar(255) unique not null
 - `password_hash` varchar(255) **nullable** (null for social-only accounts)
 - `created_at` datetime, `updated_at` datetime
 
 **refresh_tokens**
+
 - `id` varchar(36) PK
 - `user_id` varchar(36) not null (FK → users.id)
 - `token_hash` varchar(64) not null (SHA-256 hex)
@@ -270,6 +280,7 @@ Social-only users have a null `password_hash`. Requires `GOOGLE_CLIENT_ID`,
 - `created_at` datetime
 
 **social_accounts**
+
 - `id` varchar(36) PK
 - `user_id` varchar(36) not null (FK → users.id)
 - `provider` varchar(32) not null (e.g. `google`)
@@ -278,17 +289,20 @@ Social-only users have a null `password_hash`. Requires `GOOGLE_CLIENT_ID`,
 - unique(`provider`, `provider_account_id`)
 
 **RBAC tables**
+
 - **roles** — `id` varchar(36) PK, `name` varchar(64) unique (`admin`, `user`)
-- **permissions** — `id` varchar(36) PK, `key` varchar(64) unique (e.g. `users:list`)
+- **permissions** — `id` varchar(36) PK, `key` varchar(64) unique (e.g.
+  `users:list`)
 - **role_permissions** — (`role_id`, `permission_id`) composite PK (M:N)
 - **user_roles** — (`user_id`, `role_id`) composite PK (M:N)
 
-A user's effective permissions are the union of permission keys across their roles.
+A user's effective permissions are the union of permission keys across their
+roles.
 
-**Seeding** (`src/db/seed.ts`, run via `deno task db:seed`): inserts the `user` and
-`admin` roles, the four `users:*` permissions, and the role→permission grants
-(`admin` = all, `user` = none of the `:any` keys). New registrations get the `user`
-role by default.
+**Seeding** (`src/db/seed.ts`, run via `deno task db:seed`): inserts the `user`
+and `admin` roles, the four `users:*` permissions, and the role→permission
+grants (`admin` = all, `user` = none of the `:any` keys). New registrations get
+the `user` role by default.
 
 IDs are app-generated UUIDs so the in-memory fakes and MySQL behave identically.
 
@@ -298,7 +312,8 @@ Loaded from env (`--env-file=.env`) and documented in `.env.example`:
 
 - `PORT`, `NODE_ENV`/`LOG_LEVEL`
 - `DATABASE_URL` (MySQL)
-- `JWT_SECRET`, `ACCESS_TOKEN_TTL` (default 15m), `REFRESH_TOKEN_TTL` (default 30d)
+- `JWT_SECRET`, `ACCESS_TOKEN_TTL` (default 15m), `REFRESH_TOKEN_TTL` (default
+  30d)
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
 - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`
 - `REDIS_URL` (optional — absent ⇒ in-memory rate-limit store)
@@ -308,28 +323,29 @@ Loaded from env (`--env-file=.env`) and documented in `.env.example`:
 ## Testing
 
 - `Deno.test` + Hono `app.request()` for in-process integration tests.
-- Build the app with **in-memory repository fakes** — no DB required for unit and
-  route tests. This is the payoff of the repository interface + `injectDeps`:
-  tests assemble a `Deps` object backed by in-memory repos and pass it to
-  `createApp(deps)`, so the same route modules run unchanged against fakes.
+- Build the app with **in-memory repository fakes** — no DB required for unit
+  and route tests. This is the payoff of the repository interface +
+  `injectDeps`: tests assemble a `Deps` object backed by in-memory repos and
+  pass it to `createApp(deps)`, so the same route modules run unchanged against
+  fakes.
 - `tests/helpers.ts` — builds a test app with in-memory deps and helpers to mint
   auth headers.
-- `tests/users.test.ts`, `tests/auth.test.ts` — register, login (password grant),
-  refresh rotation, revoke, protected-route access.
+- `tests/users.test.ts`, `tests/auth.test.ts` — register, login (password
+  grant), refresh rotation, revoke, protected-route access.
 - `tests/rbac.test.ts` — permission-gated routes, self-or-permission ownership
   (user edits self = allowed; user edits other = 403; admin = allowed).
-- `tests/rate-limit.test.ts` — limiter blocks after N requests using the in-memory
-  store (deterministic, no Redis).
+- `tests/rate-limit.test.ts` — limiter blocks after N requests using the
+  in-memory store (deterministic, no Redis).
 - `tests/social-login.test.ts` — `authService.loginWithGoogle` find-or-create +
   account linking + token issuance, exercised with a stubbed Google profile (no
   real OAuth round-trip).
 
 ## Pre-commit Hooks (husky v9)
 
-- `package.json` with `"prepare": "husky"` and husky as a devDependency; one-time
-  `npm install`. (Trade-off: pulls a minimal Node footprint into a Deno project,
-  used only for git-hook management. Node itself is provisioned by asdf, so no
-  separate install step.)
+- `package.json` with `"prepare": "husky"` and husky as a devDependency;
+  one-time `npm install`. (Trade-off: pulls a minimal Node footprint into a Deno
+  project, used only for git-hook management. Node itself is provisioned by
+  asdf, so no separate install step.)
 - `.husky/pre-commit` runs, in order — any failure blocks the commit:
   1. `gitleaks protect --staged --redact` (secret scan on staged changes)
   2. `deno fmt --check`
@@ -401,9 +417,11 @@ api/
 ## Out of Scope (YAGNI)
 
 - Second business domain / resource relationships.
-- Social providers beyond Google (the provider middleware makes adding GitHub/etc.
-  a small, well-isolated change).
-- Admin UI / endpoints for managing roles & permissions at runtime (seeded only).
+- Social providers beyond Google (the provider middleware makes adding
+  GitHub/etc. a small, well-isolated change).
+- Admin UI / endpoints for managing roles & permissions at runtime (seeded
+  only).
 - Cookie-based token delivery (JSON body only).
 - Email verification and password reset.
-- CI pipeline config (the `check:all` task is CI-ready; wiring a workflow is later).
+- CI pipeline config (the `check:all` task is CI-ready; wiring a workflow is
+  later).
