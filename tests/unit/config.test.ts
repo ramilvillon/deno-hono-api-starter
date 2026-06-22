@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from '@std/assert'
-import { loadConfig } from '../src/config.ts'
+import { loadConfig } from '../../src/config.ts'
 
 const base = {
   PORT: '3000',

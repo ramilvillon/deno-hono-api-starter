@@ -1,5 +1,5 @@
 import { assert, assertEquals } from '@std/assert'
-import { makeTestApp } from './helpers.ts'
+import { makeTestApp } from '../helpers.ts'
 
 Deno.test('serves an OpenAPI document', async () => {
   const { app } = makeTestApp()

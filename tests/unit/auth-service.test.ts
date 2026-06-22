@@ -1,10 +1,10 @@
 import { assert, assertEquals, assertRejects } from '@std/assert'
-import { createInMemoryUserRepository } from '../src/modules/users/users.repository.ts'
-import { createInMemoryRefreshTokenRepository } from '../src/modules/auth/token.repository.ts'
-import { createUserService } from '../src/modules/users/users.service.ts'
-import { createAuthService } from '../src/modules/auth/auth.service.ts'
-import type { SocialAccountRepository } from '../src/modules/auth/social.repository.ts'
-import { loadConfig } from '../src/config.ts'
+import { createInMemoryUserRepository } from '../../src/modules/users/users.repository.ts'
+import { createInMemoryRefreshTokenRepository } from '../../src/modules/auth/token.repository.ts'
+import { createUserService } from '../../src/modules/users/users.service.ts'
+import { createAuthService } from '../../src/modules/auth/auth.service.ts'
+import type { SocialAccountRepository } from '../../src/modules/auth/social.repository.ts'
+import { loadConfig } from '../../src/config.ts'
 
 function setup() {
   const config = loadConfig({ DATABASE_URL: 'x', JWT_SECRET: 'sec' })

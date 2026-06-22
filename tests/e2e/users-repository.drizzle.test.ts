@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert'
-import { loadConfig } from '../src/config.ts'
-import { createDb } from '../src/db/client.ts'
-import { createDrizzleUserRepository } from '../src/modules/users/users.repository.drizzle.ts'
+import { loadConfig } from '../../src/config.ts'
+import { createDb } from '../../src/db/client.ts'
+import { createDrizzleUserRepository } from '../../src/modules/users/users.repository.drizzle.ts'
 
 const url = Deno.env.get('DATABASE_URL')
 

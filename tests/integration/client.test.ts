@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert'
 import { hc } from 'hono/client'
-import type { AppType } from '../src/app.ts'
-import { makeTestApp } from './helpers.ts'
+import type { AppType } from '../../src/app.ts'
+import { makeTestApp } from '../helpers.ts'
 
 Deno.test('typed client hits /health', async () => {
   const { app } = makeTestApp()

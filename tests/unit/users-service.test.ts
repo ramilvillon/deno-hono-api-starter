@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from '@std/assert'
-import { createInMemoryUserRepository } from '../src/modules/users/users.repository.ts'
-import { createUserService } from '../src/modules/users/users.service.ts'
-import { verifyPassword } from '../src/lib/password.ts'
+import { createInMemoryUserRepository } from '../../src/modules/users/users.repository.ts'
+import { createUserService } from '../../src/modules/users/users.service.ts'
+import { verifyPassword } from '../../src/lib/password.ts'
 
 function service() {
   const repo = createInMemoryUserRepository({ user: [] })

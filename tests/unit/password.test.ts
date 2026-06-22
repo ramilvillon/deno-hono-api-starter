@@ -1,5 +1,5 @@
 import { assert, assertEquals } from '@std/assert'
-import { hashPassword, verifyPassword } from '../src/lib/password.ts'
+import { hashPassword, verifyPassword } from '../../src/lib/password.ts'
 
 Deno.test('hash + verify round-trips', async () => {
   const hash = await hashPassword('s3cret')
