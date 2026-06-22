@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import { createInMemoryUserRepository } from '../src/modules/users/users.repository.ts'
+import { createInMemoryUserRepository } from '../../src/modules/users/users.repository.ts'
 
 Deno.test('in-memory user repo create + findByEmail + access', async () => {
   const repo = createInMemoryUserRepository()
