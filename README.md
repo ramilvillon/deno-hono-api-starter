@@ -123,16 +123,27 @@ docker compose --profile redis up -d   # starts MySQL + Redis
 ## Development
 
 ```bash
-deno task dev          # run with --watch
-deno task test         # run the test suite (deno test -A)
-deno task check:all    # fmt --check + lint + type-check (the CI/pre-commit gate)
-deno task fmt          # format
-deno task lint         # lint
+deno task dev               # run with --watch
+deno task test              # run every test (deno test -A)
+deno task test:unit         # tests/unit — pure logic, no I/O
+deno task test:integration  # tests/integration — full app via app.request
+deno task test:e2e          # tests/e2e — real MySQL (loads .env)
+deno task check:all         # fmt --check + lint + type-check (CI/pre-commit gate)
+deno task fmt               # format
+deno task lint              # lint
 ```
 
-Tests run entirely against in-memory fakes — no MySQL required. The Drizzle
-integration tests (`*.drizzle.test.ts`) are skipped unless `DATABASE_URL` is
-set.
+Tests are grouped by scope under `tests/`:
+
+| Folder         | What it covers                                                        | Needs MySQL |
+| -------------- | --------------------------------------------------------------------- | ----------- |
+| `unit/`        | Pure functions and single middleware/services against in-memory fakes | No          |
+| `integration/` | The full app booted in-memory, exercised over HTTP via `app.request`  | No          |
+| `e2e/`         | Real adapters against a live database (the Drizzle repository)        | Yes         |
+
+`deno task test` runs all of them; the e2e tests self-skip when `DATABASE_URL`
+is unset (so they're ignored unless you run `deno task test:e2e`, which loads
+`.env`). Shared fixtures live in `tests/helpers.ts`.
 
 ### Pre-commit hook
 

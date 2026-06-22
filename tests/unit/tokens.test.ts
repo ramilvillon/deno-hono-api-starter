@@ -1,5 +1,5 @@
 import { assert, assertEquals } from '@std/assert'
-import { generateRefreshToken, hashToken } from '../src/lib/tokens.ts'
+import { generateRefreshToken, hashToken } from '../../src/lib/tokens.ts'
 
 Deno.test('refresh token is opaque and hashable', async () => {
   const token = generateRefreshToken()

@@ -1,6 +1,6 @@
 import { assert, assertEquals } from '@std/assert'
-import { authHeader, makeTestApp } from './helpers.ts'
-import { signAccessToken } from '../src/lib/jwt.ts'
+import { authHeader, makeTestApp } from '../helpers.ts'
+import { signAccessToken } from '../../src/lib/jwt.ts'
 
 async function register(app: ReturnType<typeof makeTestApp>['app']) {
   await app.request('/users', {

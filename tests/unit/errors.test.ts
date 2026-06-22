@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import { AppError } from '../src/lib/errors.ts'
+import { AppError } from '../../src/lib/errors.ts'
 
 Deno.test('AppError.notFound sets status and code', () => {
   const err = AppError.notFound('user not found')

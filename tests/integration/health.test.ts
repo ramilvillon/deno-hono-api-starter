@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import { makeTestApp } from './helpers.ts'
+import { makeTestApp } from '../helpers.ts'
 
 Deno.test('GET /health returns ok', async () => {
   const { app } = makeTestApp()

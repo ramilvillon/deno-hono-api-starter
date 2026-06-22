@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import { authHeader, makeTestApp } from './helpers.ts'
+import { authHeader, makeTestApp } from '../helpers.ts'
 
 async function registerAndId(
   app: ReturnType<typeof makeTestApp>['app'],

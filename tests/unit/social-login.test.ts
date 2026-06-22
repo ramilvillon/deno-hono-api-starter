@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertRejects } from '@std/assert'
-import { makeTestDeps } from './helpers.ts'
+import { makeTestDeps } from '../helpers.ts'
 
 Deno.test('loginWithGoogle creates + links a new user, issues tokens', async () => {
   const { deps, userRepo } = makeTestDeps()

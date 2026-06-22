@@ -1,5 +1,5 @@
 import { assert, assertEquals } from '@std/assert'
-import { createInMemoryRefreshTokenRepository } from '../src/modules/auth/token.repository.ts'
+import { createInMemoryRefreshTokenRepository } from '../../src/modules/auth/token.repository.ts'
 
 Deno.test('store, find, rotate atomically', async () => {
   const repo = createInMemoryRefreshTokenRepository()

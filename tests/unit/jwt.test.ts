@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert'
-import { signAccessToken, verifyAccessToken } from '../src/lib/jwt.ts'
+import { signAccessToken, verifyAccessToken } from '../../src/lib/jwt.ts'
 
 Deno.test('sign + verify access token', async () => {
   const token = await signAccessToken({

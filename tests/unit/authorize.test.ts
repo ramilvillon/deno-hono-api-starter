@@ -3,9 +3,9 @@ import { Hono } from 'hono'
 import {
   requirePermission,
   requireSelfOrPermission,
-} from '../src/middleware/authorize.ts'
-import type { AppEnv } from '../src/deps.ts'
-import { AppError } from '../src/lib/errors.ts'
+} from '../../src/middleware/authorize.ts'
+import type { AppEnv } from '../../src/deps.ts'
+import { AppError } from '../../src/lib/errors.ts'
 
 function appWith(user: { id: string; permissions: string[] }) {
   const app = new Hono<AppEnv>()

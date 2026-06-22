@@ -1,8 +1,8 @@
 import { assertEquals } from '@std/assert'
 import { Hono } from 'hono'
-import type { AppEnv } from '../src/deps.ts'
-import { createMemoryRateLimitStore } from '../src/lib/rate-limit-store.ts'
-import { makeRateLimiter } from '../src/middleware/rate-limit.ts'
+import type { AppEnv } from '../../src/deps.ts'
+import { createMemoryRateLimitStore } from '../../src/lib/rate-limit-store.ts'
+import { makeRateLimiter } from '../../src/middleware/rate-limit.ts'
 
 // Builds a tiny app that trusts proxy headers, so the limiter keys on the
 // X-Forwarded-For hop (the trusted-proxy deployment path).
