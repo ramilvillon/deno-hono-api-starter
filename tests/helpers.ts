@@ -10,7 +10,9 @@ import { createMemoryRateLimitStore } from '../src/lib/rate-limit-store.ts'
 import type { SocialAccountRepository } from '../src/modules/auth/social.repository.ts'
 
 const testEnv = {
-  DATABASE_URL: 'mysql://app:app@localhost:3306/app',
+  DB_USER: 'app',
+  DB_PASS: 'app',
+  DB_NAME: 'app',
   JWT_SECRET: 'test-secret',
   LOG_LEVEL: 'silent',
 }

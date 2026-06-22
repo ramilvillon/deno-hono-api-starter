@@ -3,11 +3,11 @@ import { loadConfig } from '../../src/config.ts'
 import { createDb } from '../../src/db/client.ts'
 import { createDrizzleUserRepository } from '../../src/modules/users/users.repository.drizzle.ts'
 
-const url = Deno.env.get('DATABASE_URL')
+const hasDb = Boolean(Deno.env.get('DB_NAME'))
 
 Deno.test({
   name: 'drizzle user repo create/find (needs MySQL + seed)',
-  ignore: !url,
+  ignore: !hasDb,
   fn: async () => {
     const { db, pool } = createDb(loadConfig(Deno.env.toObject()))
     const repo = createDrizzleUserRepository(db)

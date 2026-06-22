@@ -47,8 +47,8 @@ jobs:
           deno-version: 2.7.13
           cache: true
 
-      # The db/test tasks read --env-file=.env; .env.example already points
-      # DATABASE_URL at localhost:3306, matching the service container above.
+      # The db/test tasks read --env-file=.env; .env.example already sets
+      # DB_HOST/DB_PORT to localhost:3306, matching the service container above.
       - name: Configure environment
         run: cp .env.example .env
 
