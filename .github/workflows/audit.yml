@@ -35,11 +35,8 @@ jobs:
         run: deno install
 
       - name: Audit dependencies
-        run: deno audit
-        # Soft-fail for now: a known high-severity advisory in drizzle-orm
-        # (CVE-2026-39356, SQL injection) is pending a major-version bump that is
-        # tracked as a follow-up. Once drizzle-orm is on >= 0.45.2:
-        #   - switch this to `deno audit --level=high`
-        #   - remove continue-on-error
-        #   - add the "dependency audit" check to main branch protection
-        continue-on-error: true
+        # Hard gate on high/critical advisories. Moderate/low (e.g. the dev-only
+        # esbuild advisory pulled transitively by drizzle-kit) are reported by the
+        # scheduled run but do not block merges. --ignore-registry-errors keeps a
+        # transient advisory-DB outage from failing the required check.
+        run: deno audit --level=high --ignore-registry-errors
