@@ -60,11 +60,21 @@ export function createApp(deps: Deps) {
       },
     }),
   )
-  // `url` is the documented runtime config, but @scalar/types@0.0.40 types the
-  // option as an over-narrow union that omits it at the top level; cast past it.
+  // This integration version reads the spec location from `spec.url`; a
+  // top-level `url` is stripped by the config schema before rendering, leaving
+  // Scalar with no document to load (blank page + "Document not found").
+  //
+  // `cdn` is pinned: the default loads @scalar/api-reference@latest from
+  // jsdelivr, which drifts ahead of this pinned integration and can break the
+  // page. Bump this in lockstep when upgrading @scalar/hono-api-reference.
   app.get(
     '/docs',
-    apiReference({ url: '/openapi' } as Parameters<typeof apiReference>[0]),
+    apiReference(
+      {
+        spec: { url: '/openapi' },
+        cdn: 'https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.60.0',
+      } as Parameters<typeof apiReference>[0],
+    ),
   )
 
   app.onError((err, c) => {
