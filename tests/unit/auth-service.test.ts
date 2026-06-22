@@ -7,7 +7,11 @@ import type { SocialAccountRepository } from '../../src/modules/auth/social.repo
 import { loadConfig } from '../../src/config.ts'
 
 function setup() {
-  const config = loadConfig({ DATABASE_URL: 'x', JWT_SECRET: 'sec' })
+  const config = loadConfig({
+    DB_USER: 'app',
+    DB_NAME: 'app',
+    JWT_SECRET: 'sec',
+  })
   const userRepo = createInMemoryUserRepository({ user: [] })
   const tokenRepo = createInMemoryRefreshTokenRepository()
   const socialRepo: SocialAccountRepository = {

@@ -3,7 +3,11 @@ import { z } from 'zod'
 const schema = z.object({
   PORT: z.coerce.number().default(3000),
   LOG_LEVEL: z.string().default('info'),
-  DATABASE_URL: z.string().min(1),
+  DB_HOST: z.string().default('localhost'),
+  DB_PORT: z.coerce.number().default(3306),
+  DB_USER: z.string().min(1),
+  DB_PASS: z.string().default(''),
+  DB_NAME: z.string().min(1),
   JWT_SECRET: z.string().min(1),
   ACCESS_TOKEN_TTL: z.coerce.number().default(900),
   REFRESH_TOKEN_TTL: z.coerce.number().default(2592000),
@@ -22,7 +26,13 @@ const schema = z.object({
 export type Config = {
   port: number
   logLevel: string
-  databaseUrl: string
+  db: {
+    host: string
+    port: number
+    user: string
+    password: string
+    name: string
+  }
   jwtSecret: string
   accessTokenTtl: number
   refreshTokenTtl: number
@@ -42,7 +52,13 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   return {
     port: e.PORT,
     logLevel: e.LOG_LEVEL,
-    databaseUrl: e.DATABASE_URL,
+    db: {
+      host: e.DB_HOST,
+      port: e.DB_PORT,
+      user: e.DB_USER,
+      password: e.DB_PASS,
+      name: e.DB_NAME,
+    },
     jwtSecret: e.JWT_SECRET,
     accessTokenTtl: e.ACCESS_TOKEN_TTL,
     refreshTokenTtl: e.REFRESH_TOKEN_TTL,
