@@ -57,6 +57,23 @@ export function createApp(deps: Deps) {
           version: '1.0.0',
           description: 'Hono + Deno REST API boilerplate',
         },
+        tags: [
+          { name: 'Users', description: 'Registration and user management' },
+          {
+            name: 'Auth',
+            description: 'Token issuance, revocation, and Google social login',
+          },
+        ],
+        components: {
+          securitySchemes: {
+            bearerAuth: {
+              type: 'http',
+              scheme: 'bearer',
+              bearerFormat: 'JWT',
+              description: 'Access token issued by POST /oauth/token',
+            },
+          },
+        },
       },
     }),
   )
