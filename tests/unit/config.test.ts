@@ -4,7 +4,11 @@ import { loadConfig } from '../../src/config.ts'
 const base = {
   PORT: '3000',
   LOG_LEVEL: 'info',
-  DATABASE_URL: 'mysql://app:app@localhost:3306/app',
+  DB_HOST: 'localhost',
+  DB_PORT: '3306',
+  DB_USER: 'app',
+  DB_PASS: 'app',
+  DB_NAME: 'app',
   JWT_SECRET: 'secret',
   ACCESS_TOKEN_TTL: '900',
   REFRESH_TOKEN_TTL: '2592000',
@@ -20,6 +24,18 @@ Deno.test('loadConfig parses and coerces env', () => {
   assertEquals(cfg.port, 3000)
   assertEquals(cfg.accessTokenTtl, 900)
   assertEquals(cfg.redisUrl, undefined)
+  assertEquals(cfg.db, {
+    host: 'localhost',
+    port: 3306,
+    user: 'app',
+    password: 'app',
+    name: 'app',
+  })
+})
+
+Deno.test('loadConfig throws on missing DB_NAME', () => {
+  const { DB_NAME: _omit, ...partial } = base
+  assertThrows(() => loadConfig(partial), Error, 'DB_NAME')
 })
 
 Deno.test('loadConfig throws on missing required value', () => {

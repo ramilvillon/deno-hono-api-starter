@@ -54,7 +54,11 @@ Copy `.env.example` to `.env` and adjust. Config is validated at startup
 | ---------------------- | ------------------------------------ | ----------------------------------------------------------------- |
 | `PORT`                 | `3000`                               | HTTP port                                                         |
 | `LOG_LEVEL`            | `debug`                              | `debug` enables pino-pretty output                                |
-| `DATABASE_URL`         | `mysql://app:app@localhost:3306/app` | MySQL connection                                                  |
+| `DB_HOST`              | `localhost`                          | MySQL host                                                        |
+| `DB_PORT`              | `3306`                               | MySQL port (keep in sync with `MYSQL_PORT`)                       |
+| `DB_USER`              | —                                    | **required**; MySQL user                                          |
+| `DB_PASS`              | _(empty)_                            | MySQL password                                                    |
+| `DB_NAME`              | —                                    | **required**; MySQL database name                                 |
 | `JWT_SECRET`           | —                                    | **required**; signs access tokens                                 |
 | `ACCESS_TOKEN_TTL`     | `900`                                | access-token lifetime (seconds)                                   |
 | `REFRESH_TOKEN_TTL`    | `2592000`                            | refresh-token lifetime (seconds)                                  |
@@ -141,8 +145,8 @@ Tests are grouped by scope under `tests/`:
 | `integration/` | The full app booted in-memory, exercised over HTTP via `app.request`  | No          |
 | `e2e/`         | Real adapters against a live database (the Drizzle repository)        | Yes         |
 
-`deno task test` runs all of them; the e2e tests self-skip when `DATABASE_URL`
-is unset (so they're ignored unless you run `deno task test:e2e`, which loads
+`deno task test` runs all of them; the e2e tests self-skip when `DB_NAME` is
+unset (so they're ignored unless you run `deno task test:e2e`, which loads
 `.env`). Shared fixtures live in `tests/helpers.ts`.
 
 ### Pre-commit hook

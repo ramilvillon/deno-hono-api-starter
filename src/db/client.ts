@@ -6,7 +6,13 @@ import * as schema from './schema.ts'
 export type Database = ReturnType<typeof createDb>['db']
 
 export function createDb(config: Config) {
-  const pool = mysql.createPool(config.databaseUrl)
+  const pool = mysql.createPool({
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    password: config.db.password,
+    database: config.db.name,
+  })
   const db = drizzle(pool, { schema, mode: 'default' })
   return { db, pool }
 }
