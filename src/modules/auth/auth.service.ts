@@ -5,17 +5,11 @@ import type {
   RefreshTokenRepository,
 } from './token.repository.ts'
 import type { SocialAccountRepository } from './social.repository.ts'
+import type { TokenPair } from './auth.schema.ts'
 import { hashPassword, verifyPassword } from '../../lib/password.ts'
 import { signAccessToken } from '../../lib/jwt.ts'
 import { generateRefreshToken, hashToken } from '../../lib/tokens.ts'
 import { AppError } from '../../lib/errors.ts'
-
-export type TokenPair = {
-  access_token: string
-  refresh_token: string
-  token_type: 'Bearer'
-  expires_in: number
-}
 
 export type AuthService = ReturnType<typeof createAuthService>
 

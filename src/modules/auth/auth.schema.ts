@@ -14,4 +14,12 @@ export const tokenRequestSchema = z.discriminatedUnion('grant_type', [
 
 export const revokeSchema = z.object({ refresh_token: z.string().min(1) })
 
+export const tokenPairSchema = z.object({
+  access_token: z.string(),
+  refresh_token: z.string(),
+  token_type: z.literal('Bearer'),
+  expires_in: z.number(),
+})
+
 export type TokenRequest = z.infer<typeof tokenRequestSchema>
+export type TokenPair = z.infer<typeof tokenPairSchema>

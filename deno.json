@@ -22,6 +22,8 @@
     "@hono/zod-validator": "npm:@hono/zod-validator@^0.4.1",
     "@hono/oauth-providers": "npm:@hono/oauth-providers@^0.6.2",
     "hono-openapi": "npm:hono-openapi@^0.4.2",
+    "hono-openapi/": "npm:/hono-openapi@^0.4.2/",
+    "zod-openapi": "npm:zod-openapi@^4.2.4",
     "hono-pino": "npm:hono-pino@^0.7.0",
     "hono-rate-limiter": "npm:hono-rate-limiter@^0.4.2",
     "@scalar/hono-api-reference": "npm:@scalar/hono-api-reference@^0.5.165",
