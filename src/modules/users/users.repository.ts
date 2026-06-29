@@ -25,6 +25,8 @@ export type UserRepository = {
   assignRole(userId: string, roleName: string): Promise<void>
 }
 
+// In-memory test double for UserRepository: lets the unit/integration suite
+// run without MySQL. Mirror any behavior change in users.repository.drizzle.ts.
 // roleGrants maps roleName -> permission keys (mirrors seeded RBAC data).
 export function createInMemoryUserRepository(
   roleGrants: Record<string, string[]> = { user: [] },

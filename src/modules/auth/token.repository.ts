@@ -24,6 +24,8 @@ export type RefreshTokenRepository = {
   revokeAllForUser(userId: string): Promise<void>
 }
 
+// In-memory test double for RefreshTokenRepository: lets the unit/integration
+// suite run without MySQL. Mirror any behavior change in token.repository.drizzle.ts.
 export function createInMemoryRefreshTokenRepository(): RefreshTokenRepository {
   const byId = new Map<string, RefreshTokenRecord>()
 
